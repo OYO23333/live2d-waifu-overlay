@@ -101,6 +101,31 @@ public class OverlayService extends Service {
     }
 
     private void updateScreenSize() {
+        // 注意：getResources().getDisplayMetrics() 给的是"应用可用区域"，已扣掉状态栏
+        //（实测 2480 的屏幕返回 2387），用它定位会让她悬在离底边 ~93px 处。
+        // 悬浮窗用 FLAG_LAYOUT_NO_LIMITS，可以直接用真实屏幕尺寸。
+        try {
+            WindowManager wm0 = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            if (Build.VERSION.SDK_INT >= 30 && wm0 != null) {
+                android.graphics.Rect b = wm0.getMaximumWindowMetrics().getBounds();
+                if (b.width() > 0 && b.height() > 0) {
+                    screenW = b.width();
+                    screenH = b.height();
+                    L.i("Kanban", "屏幕尺寸(真实) " + screenW + "x" + screenH);
+                    return;
+                }
+            }
+            DisplayMetrics m = new DisplayMetrics();
+            if (wm0 != null) {
+                wm0.getDefaultDisplay().getRealMetrics(m);
+                screenW = m.widthPixels;
+                screenH = m.heightPixels;
+                L.i("Kanban", "屏幕尺寸(getRealMetrics) " + screenW + "x" + screenH);
+                return;
+            }
+        } catch (Throwable t) {
+            L.w("Kanban", "取真实屏幕尺寸失败，回退：" + t);
+        }
         DisplayMetrics m = getResources().getDisplayMetrics();
         screenW = m.widthPixels;
         screenH = m.heightPixels;

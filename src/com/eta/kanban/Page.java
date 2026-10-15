@@ -39,10 +39,11 @@ public class Page {
         sb.append("#live2d{width:auto !important;height:100% !important;max-width:100% !important;margin:0 auto !important}");
         // 关闭后那个黄色唤起按钮我们用通知替代，隐藏掉
         sb.append("#waifu-toggle{display:none !important}");
-        // 工具栏：触屏没有 hover，必须常显，并挪进窗口内右上角
+        // 工具栏：touch 没有 hover 必须常显；内缩 6px 免得贴屏幕边缘被裁，图标调小、略微透明
         if (showToolbar) {
-            sb.append("#waifu-tool{opacity:1 !important;right:0 !important;top:6px !important;gap:6px !important}");
-            sb.append("#waifu-tool svg{fill:#e6edf5 !important;filter:drop-shadow(0 0 2px rgba(0,0,0,.75))}");
+            sb.append("#waifu-tool{opacity:.92 !important;right:6px !important;top:8px !important;gap:4px !important}");
+            sb.append("#waifu-tool svg{height:20px !important;width:20px !important;")
+              .append("fill:#e6edf5 !important;filter:drop-shadow(0 0 2px rgba(0,0,0,.75))}");
         } else {
             sb.append("#waifu-tool{display:none !important}");
         }
