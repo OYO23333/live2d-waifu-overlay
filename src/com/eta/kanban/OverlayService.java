@@ -27,6 +27,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class OverlayService extends Service {
 
@@ -238,7 +239,15 @@ public class OverlayService extends Service {
 
         // 重新挂窗口时重载一次页面：既清掉"上次关过"的状态，也保证她一定露面
         if (web != null) {
-            web.loadDataWithBaseURL("https://app.local/", Page.html(this),
+            String html = Page.html(this);
+            try {   // 调试：把页面源码落盘，方便在电脑上查 HTML/JS 语法
+                java.io.FileOutputStream fo = new java.io.FileOutputStream(
+                        new java.io.File(getExternalFilesDir(null), "page.html"));
+                fo.write(html.getBytes("UTF-8"));
+                fo.close();
+            } catch (Throwable ignored) {
+            }
+            web.loadDataWithBaseURL("https://app.local/", html,
                     "text/html", "utf-8", null);
         }
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -296,6 +305,12 @@ public class OverlayService extends Service {
         updateNotification();
         L.i("Kanban", src + "点击穿透 = " + now
                 + (now ? "（她纯装饰，切回请点通知栏按钮）" : "（恢复可交互）"));
+        try {
+            Toast.makeText(this, now ? "点击穿透：已开启，她现在是纯装饰（用通知栏按钮切回）"
+                            : "点击穿透：已关闭，可以正常点她",
+                    Toast.LENGTH_SHORT).show();
+        } catch (Throwable ignored) {
+        }
         final String js = "window.__etaTouch && window.__etaTouch(" + now + ")";
         if (web != null) {
             web.post(new Runnable() {

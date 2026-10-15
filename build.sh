@@ -3,6 +3,8 @@
 set -e
 cd /workspace/kanban
 
+python3 check_page.py
+
 export JAVA_HOME=/workspace/tools/jdk
 export PATH="$JAVA_HOME/bin:/workspace/tools/build-tools:/usr/bin:/bin:$PATH"
 
