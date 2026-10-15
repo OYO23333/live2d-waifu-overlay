@@ -98,10 +98,20 @@ dumpsys deviceidle whitelist +com.eta.kanban
 6. 文件名里的空格会被 URL 编码成 `%20`，拦截器要解码，否则带空格的动作文件全部 404
 7. 长任务别用一次性异步任务（随运行结束被回收）→ 用常驻任务 + 断点续传
 
-## 素材与许可
+## 许可（别搞错）
 
-模型来自 `fghrsh/live2d_api`、`live2d-widget` 生态的 npm 模型包，引擎为 live2d-widget（MIT）。
-Potion-Maker、bilibili-live、ShizukuTalk、HyperdimensionNeptunia、KantaiCollection 等
-角色形象版权归各自权利人。
+打包/使用到的组件与各自许可，逐条列清：
 
-**仅限个人学习使用，请勿商用或再分发。**
+| 组件 | 来源 | 许可 |
+|---|---|---|
+| 本仓库自己的代码（`src/`、`build.sh` 等） | 本项目 | 自用随意 |
+| 引擎：`assets/widget/waifu-tips.js`、`chunk/*`、`waifu.css`、`waifu-tips.json` | [stevenjoezhang/live2d-widget](https://github.com/stevenjoezhang/live2d-widget) | **GPL-3.0**（不是 MIT） |
+| `assets/widget/live2d.min.js`（Cubism 2 Core） | Live2D Cubism Core | Live2D 专有许可，属 **Redistributable Code**；文件头即注明 "5.1 Right of Use and Redistribution — The Customer may copy and distribute the Redistributable Code" |
+| 模型：`assets/modelrepo/`（当前 Potion-Maker/Pio） | fghrsh/live2d_api 等 | 角色素材权利归原作者/发行方，**仅限个人学习使用** |
+
+要点：
+
+- **自己手机自用**：无碍。
+- **要分发这个 App**：因为打包了 GPL-3.0 的 live2d-widget，整体需按 GPL-3.0 提供对应源码（本仓库可以承担）；模型素材要逐个确认授权；商用还需看 Live2D 的发行许可条款。
+- live2d-widget 的 README 明确说了**不能包含 Cubism SDK for Web 的源码**（许可限制），本项目也没包含——只用了允许再分发的 Cubism 2 Core。
+- 模型文件不入 git（`.gitignore` 里排除 `assets/modelrepo/`），需要时用 `make_assets.js` 重新生成。
