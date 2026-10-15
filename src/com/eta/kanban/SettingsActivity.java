@@ -19,9 +19,9 @@ import android.widget.TextView;
 
 public class SettingsActivity extends Activity {
 
-    // 资源里只打包了这一个角色（用 /workspace/assets_for_model.js <id> 可以换人重建）
+    // 资源里打包的是哪个角色由生成脚本决定（assets_for_model.js / assets_from_npm.js）
     private static final String[] MODEL_NAMES = {
-            "1 · Pio（尖帽紫发，87 套衣服）"
+            "1 · 当前资源包里的角色"
     };
 
     private int w, h, alpha, edgeX, edgeY, tex;
