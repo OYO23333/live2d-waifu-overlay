@@ -67,6 +67,9 @@ public class LocalAssets extends WebViewClient {
     @Override
     public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
         String url = request.getUrl().toString();
+        // 一言：来源=本地时拦下来给本地文案；来源=在线则放行到真网络
+        WebResourceResponse hito = hitokoto(url);
+        if (hito != null) return hito;
         if (url.startsWith("https://app.local/") || url.startsWith("http://app.local/")) {
             String path = url.substring(url.indexOf("app.local/") + "app.local/".length());
             int q = path.indexOf('?');
@@ -74,6 +77,24 @@ public class LocalAssets extends WebViewClient {
             return serve(urlDecode(path));
         }
         return null;   // 其它请求（理论上不该有）交给系统
+    }
+
+    /** 一言请求：本地来源时返回离线文案 */
+    private WebResourceResponse hitokoto(String url) {
+        if (url == null || !(url.contains("hitokoto") || url.contains("jinrishici"))) return null;
+        if (Prefs.hitoSource(ctx) == 1) return null;   // 在线：放行
+        String[] lines = {
+            "离线看板娘来啦～", "记得偶尔看看远处哦", "要不要喝口水？",
+            "我一直在这里陪着你", "别熬太晚，早点睡", "今天也辛苦啦"
+        };
+        String line = lines[(int) (Math.random() * lines.length)];
+        String body = "{\"hitokoto\":\"" + line + "\",\"from\":\"本地离线\",\"type\":\"a\"}";
+        Map<String, String> headers = new HashMap<String, String>();
+        headers.put("Access-Control-Allow-Origin", "*");
+        headers.put("Cache-Control", "no-store");
+        L.i("Kanban", "一言(本地) " + line);
+        return new WebResourceResponse("application/json", "utf-8", 200, "OK", headers,
+                new java.io.ByteArrayInputStream(body.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
     @Override

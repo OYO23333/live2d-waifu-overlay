@@ -167,12 +167,9 @@ public class OverlayService extends Service {
                 updateNotification();
                 break;
             case ACTION_RESET_POS: {
-                Prefs.set(this, "rightSide", true);
-                Prefs.set(this, "anchorTop", false);
-                Prefs.set(this, "edgeX", 0);
-                Prefs.set(this, "edgeY", 8);
+                Prefs.resetLook(this);            // 大小/边距/气泡/工具栏 回默认
                 if (!attached) attach(); else { applyWindowFlags(); resetPosition(); }
-                L.i("Kanban", "位置已重置：右下角、贴底边");
+                L.i("Kanban", "已恢复默认外观与位置（右下角贴底）");
                 break;
             }
             case ACTION_TOGGLE_TOUCH: {

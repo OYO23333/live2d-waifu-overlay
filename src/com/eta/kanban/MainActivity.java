@@ -91,7 +91,7 @@ public class MainActivity extends Activity {
             }
         }));
 
-        root.addView(button("回到默认位置（右下角贴底）", new Runnable() {
+        root.addView(button("恢复默认外观与位置", new Runnable() {
             public void run() {
                 Intent i = new Intent(MainActivity.this, OverlayService.class);
                 i.setAction(OverlayService.ACTION_RESET_POS);
