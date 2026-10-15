@@ -1,0 +1,18 @@
+# 构建产物
+build/
+out/
+dex/
+gen/
+*.apk
+*.idsig
+
+# 本地自动生成的签名（build.sh 会在缺失时重新生成）
+*.keystore
+
+# 素材目录：含第三方角色形象，不入库，用 setup-assets.sh 从本地还原
+assets/
+
+# 编辑器/系统
+*.swp
+*~
+.DS_Store

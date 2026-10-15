@@ -1,0 +1,187 @@
+package com.eta.kanban;
+
+import android.app.Activity;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
+import android.widget.Spinner;
+import android.widget.TextView;
+
+public class SettingsActivity extends Activity {
+
+    private static final String[] MODEL_NAMES = {
+            "1 · Pio（尖帽紫发）", "2 · Tia", "3 · bilibili 22", "4 · bilibili 33",
+            "5 · Shizuku 48", "6 · neptune_classic", "7 · murakumo"
+    };
+
+    private int w, h, alpha, edgeX, edgeY, tex;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        w = Prefs.sizeW(this); h = Prefs.sizeH(this); alpha = Prefs.alpha(this);
+        edgeX = Prefs.edgeX(this); edgeY = Prefs.edgeY(this); tex = Prefs.texId(this);
+
+        final LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(48, 56, 48, 48);
+
+        TextView t = new TextView(this);
+        t.setText("看板娘设置");
+        t.setTextSize(24);
+        root.addView(t);
+
+        // 模型
+        root.addView(label("模型"));
+        Spinner sp = new Spinner(this);
+        ArrayAdapter<String> ad = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_dropdown_item, MODEL_NAMES);
+        sp.setAdapter(ad);
+        sp.setSelection(Math.max(0, Math.min(6, Prefs.modelId(this) - 1)));
+        sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                Prefs.set(SettingsActivity.this, "modelId", pos + 1);
+            }
+            public void onNothingSelected(AdapterView<?> p) { }
+        });
+        root.addView(sp);
+
+        // 贴图
+        root.addView(label("贴图 / 衣服 ID"));
+        Spinner sp2 = new Spinner(this);
+        String[] texs = {"1", "2", "3", "4"};
+        sp2.setAdapter(new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_dropdown_item, texs));
+        sp2.setSelection(Math.max(0, Math.min(3, tex - 1)));
+        sp2.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                Prefs.set(SettingsActivity.this, "texId", pos + 1);
+            }
+            public void onNothingSelected(AdapterView<?> p) { }
+        });
+        root.addView(sp2);
+
+        // 尺寸
+        root.addView(slider("宽度", 160, 700, w, new SliderCB() {
+            public void on(int v) { w = v; Prefs.set(SettingsActivity.this, "sizeW", v); }
+        }));
+        root.addView(slider("高度", 160, 700, h, new SliderCB() {
+            public void on(int v) { h = v; Prefs.set(SettingsActivity.this, "sizeH", v); }
+        }));
+
+        // 停靠
+        root.addView(label("停靠位置"));
+        RadioGroup rg = new RadioGroup(this);
+        rg.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton rbR = new RadioButton(this); rbR.setText("右侧"); rbR.setId(101);
+        RadioButton rbL = new RadioButton(this); rbL.setText("左侧"); rbL.setId(102);
+        rg.addView(rbR); rg.addView(rbL);
+        rg.check(Prefs.rightSide(this) ? 101 : 102);
+        rg.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            public void onCheckedChanged(RadioGroup g, int id) {
+                Prefs.set(SettingsActivity.this, "rightSide", id == 101);
+            }
+        });
+        root.addView(rg);
+
+        root.addView(slider("到边距 X", 0, 300, edgeX, new SliderCB() {
+            public void on(int v) { edgeX = v; Prefs.set(SettingsActivity.this, "edgeX", v); }
+        }));
+        root.addView(slider("距顶部 Y", 0, 1500, edgeY, new SliderCB() {
+            public void on(int v) { edgeY = v; Prefs.set(SettingsActivity.this, "edgeY", v); }
+        }));
+        root.addView(slider("透明度 %", 20, 100, alpha, new SliderCB() {
+            public void on(int v) { alpha = v; Prefs.set(SettingsActivity.this, "alpha", v); }
+        }));
+
+        // 开关
+        root.addView(check("显示工具栏（换人/换装/关闭）", Prefs.toolbar(this), "toolbar"));
+        root.addView(check("显示关闭按钮", Prefs.closeBtn(this), "closeBtn"));
+        root.addView(check("显示气泡台词", Prefs.hitokoto(this), "hitokoto"));
+        root.addView(check("点击穿透（看板娘不接收触摸，纯装饰）", Prefs.touchThrough(this), "touchThrough"));
+        root.addView(check("显示拖动手柄（拖它挪位置，位置自动记住）", Prefs.showHandle(this), "showHandle"));
+        root.addView(check("开机自动上岗", Prefs.autoStart(this), "autoStart"));
+
+        Button apply = new Button(this);
+        apply.setText("保存并重新加载看板娘");
+        apply.setAllCaps(false);
+        apply.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                android.content.Intent i = new android.content.Intent(
+                        SettingsActivity.this, OverlayService.class);
+                i.setAction(OverlayService.ACTION_RELOAD);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(i);
+                } else {
+                    startService(i);
+                }
+                finish();
+            }
+        });
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        p.topMargin = 40;
+        apply.setLayoutParams(p);
+        root.addView(apply);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(root);
+        setContentView(sv);
+    }
+
+    private interface SliderCB { void on(int v); }
+
+    private TextView label(String s) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setPadding(0, 28, 0, 4);
+        t.setTextSize(15);
+        return t;
+    }
+
+    private LinearLayout slider(String name, final int min, final int max, int value, final SliderCB cb) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        final TextView t = new TextView(this);
+        t.setText(name + "：" + value);
+        box.addView(t);
+
+        SeekBar sb = new SeekBar(this);
+        sb.setMax(max - min);
+        sb.setProgress(Math.max(0, Math.min(max - min, value - min)));
+        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar s, int prog, boolean fromUser) {
+                int v = min + prog;
+                t.setText(name + "：" + v);
+                cb.on(v);
+            }
+            public void onStartTrackingTouch(SeekBar s) { }
+            public void onStopTrackingTouch(SeekBar s) { }
+        });
+        box.addView(sb);
+        return box;
+    }
+
+    private CheckBox check(String text, boolean value, final String key) {
+        final CheckBox cb = new CheckBox(this);
+        cb.setText(text);
+        cb.setChecked(value);
+        cb.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(android.widget.CompoundButton v, boolean checked) {
+                Prefs.set(SettingsActivity.this, key, checked);
+            }
+        });
+        return cb;
+    }
+}
