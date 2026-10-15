@@ -19,9 +19,9 @@ import android.widget.TextView;
 
 public class SettingsActivity extends Activity {
 
+    // 资源里只打包了这一个角色（用 /workspace/assets_for_model.js <id> 可以换人重建）
     private static final String[] MODEL_NAMES = {
-            "1 · Pio（尖帽紫发）", "2 · Tia", "3 · bilibili 22", "4 · bilibili 33",
-            "5 · Shizuku 48", "6 · neptune_classic", "7 · murakumo"
+            "1 · Pio（尖帽紫发，87 套衣服）"
     };
 
     private int w, h, alpha, edgeX, edgeY, tex;
@@ -47,7 +47,7 @@ public class SettingsActivity extends Activity {
         ArrayAdapter<String> ad = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, MODEL_NAMES);
         sp.setAdapter(ad);
-        sp.setSelection(Math.max(0, Math.min(6, Prefs.modelId(this) - 1)));
+        sp.setSelection(0);   // 资源里只有这一个角色
         sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                 Prefs.set(SettingsActivity.this, "modelId", pos + 1);
