@@ -28,6 +28,13 @@ public class SettingsActivity extends Activity {
     private int tipsW, tipsH, tipsFont, tipsOffY, toolIcon, toolGap;
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // 从通知或桌面进来，算作"想跟她互动"，穿透就自动退出
+        OverlayService.clearTouchIfOn(this);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         L.init(this);

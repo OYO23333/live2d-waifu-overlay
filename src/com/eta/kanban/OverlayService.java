@@ -39,6 +39,8 @@ public class OverlayService extends Service {
     public static final String ACTION_KEEPALIVE = "com.eta.kanban.action.KEEPALIVE";
     /** 切换点击穿透（开着的时候她收不到触摸，通知栏必须有入口切回来） */
     public static final String ACTION_TOGGLE_TOUCH = "com.eta.kanban.action.TOGGLE_TOUCH";
+    /** 强制退出穿透（打开 App 时用：用户都进主界面了，说明想跟她互动） */
+    public static final String ACTION_CLEAR_TOUCH = "com.eta.kanban.action.CLEAR_TOUCH";
     /** 回到默认位置：右下角、贴屏幕底边 */
     public static final String ACTION_RESET_POS = "com.eta.kanban.action.RESET_POS";
 
@@ -49,6 +51,21 @@ public class OverlayService extends Service {
 
     public static boolean isRunning() {
         return sRunning;
+    }
+
+    /**
+     * 打开 App 任意界面时调用：穿透还开着就自动关掉。
+     * 用户点通知或桌面图标进来，本来就是想跟她互动，而穿透状态下她点不到、开关也藏得深。
+     */
+    public static void clearTouchIfOn(Context c) {
+        if (!Prefs.touchThrough(c) || !sRunning) return;
+        Intent i = new Intent(c, OverlayService.class).setAction(ACTION_CLEAR_TOUCH);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            c.startForegroundService(i);
+        } else {
+            c.startService(i);
+        }
+        Toast.makeText(c, "已恢复可交互（点击穿透自动关闭）", Toast.LENGTH_SHORT).show();
     }
 
     private WindowManager wm;
@@ -178,6 +195,10 @@ public class OverlayService extends Service {
                 setTouchThrough(!Prefs.touchThrough(this), "");
                 break;
             }
+            case ACTION_CLEAR_TOUCH: {
+                if (Prefs.touchThrough(this)) setTouchThrough(false, "打开 App 后");
+                break;
+            }
             default: // ACTION_SHOW
                 Prefs.setEnabled(this, true);
                 Prefs.setVisible(this, true);
@@ -293,7 +314,10 @@ public class OverlayService extends Service {
         if (attached && container != null) {
             try {
                 wm.updateViewLayout(container, lp);
-            } catch (Throwable ignored) {
+                L.i("Kanban", "窗口参数已更新 不可触摸="
+                        + ((lp.flags & WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) != 0));
+            } catch (Throwable t) {
+                L.e("Kanban", "窗口参数更新失败：" + t);
             }
         }
     }
@@ -584,7 +608,7 @@ public class OverlayService extends Service {
 
         return b.setContentTitle("看板娘")
                 .setContentText(showing
-                        ? (through ? "正在陪你（点击穿透中，摸不到她）" : "正在陪你（点通知可设置）")
+                        ? (through ? "正在陪你（点击穿透中，展开通知可切回）" : "正在陪你（点通知可设置）")
                         : "已收起（点这里唤回）")
                 .setSmallIcon(android.R.drawable.ic_menu_view)
                 .setContentIntent(piSettings)
@@ -621,10 +645,15 @@ public class OverlayService extends Service {
     public class Bridge {
         @JavascriptInterface
         public void hide() {
-            L.i("Kanban", "Bridge.hide() 被调用（关闭按钮生效）");
-            Prefs.setVisible(OverlayService.this, false);
-            detach();
-            updateNotification();
+            // JS 接口回调跑在 WebView 线程，动窗口必须回主线程，否则 removeView 会静默失败
+            ui.post(new Runnable() {
+                public void run() {
+                    L.i("Kanban", "Bridge.hide() 被调用（关闭按钮生效）");
+                    Prefs.setVisible(OverlayService.this, false);
+                    detach();
+                    updateNotification();
+                }
+            });
         }
 
         @JavascriptInterface
@@ -636,7 +665,12 @@ public class OverlayService extends Service {
         /** 工具栏上的“点击穿透”按钮：切换后同步按钮外观；开启后她收不到触摸，用通知栏按钮切回 */
         @JavascriptInterface
         public void toggleTouch() {
-            setTouchThrough(!Prefs.touchThrough(OverlayService.this), "工具栏切换");
+            // 同上：applyWindowFlags 要动 WindowManager，必须在主线程
+            ui.post(new Runnable() {
+                public void run() {
+                    setTouchThrough(!Prefs.touchThrough(OverlayService.this), "工具栏切换");
+                }
+            });
         }
 
         @JavascriptInterface

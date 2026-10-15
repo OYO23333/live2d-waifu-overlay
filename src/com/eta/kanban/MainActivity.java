@@ -19,6 +19,9 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
 
     private TextView status;
+    private Button btnTouch;
+    /** 每次进主界面只自动清一次穿透，避免 recreate 反复触发 */
+    private boolean autoCleared;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -103,7 +106,7 @@ public class MainActivity extends Activity {
             }
         }));
 
-        root.addView(button("切换点击穿透（当前：" + (Prefs.touchThrough(this) ? "开" : "关") + "）",
+        btnTouch = button("切换点击穿透（当前：" + (Prefs.touchThrough(this) ? "开" : "关") + "）",
                 new Runnable() {
             public void run() {
                 Intent i = new Intent(MainActivity.this, OverlayService.class);
@@ -117,7 +120,8 @@ public class MainActivity extends Activity {
                     public void run() { recreate(); }
                 }, 400);
             }
-        }));
+        });
+        root.addView(btnTouch);
 
         root.addView(button("退出服务", new Runnable() {
             public void run() { send(OverlayService.ACTION_EXIT); }
@@ -172,6 +176,15 @@ public class MainActivity extends Activity {
           .append("  透明度=").append(Prefs.alpha(this)).append("%");
         sb.append("\n穿透=").append(Prefs.touchThrough(this) ? "开（纯装饰）" : "关（可交互）");
         status.setText(sb.toString());
+
+        // 打开 App 说明想跟她互动：穿透还开着就自动关掉（免得"摸不到她"又找不到开关）
+        if (!autoCleared && Prefs.touchThrough(this) && OverlayService.isRunning()) {
+            autoCleared = true;
+            OverlayService.clearTouchIfOn(this);
+            status.postDelayed(new Runnable() {
+                public void run() { recreate(); }
+            }, 700);
+        }
     }
 
     private boolean notifGranted() {
