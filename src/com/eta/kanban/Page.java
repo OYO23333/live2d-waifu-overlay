@@ -136,7 +136,8 @@ public class Page {
     private static String toolsJson(boolean toolbar, boolean close) {
         if (!toolbar) return close ? "['quit']" : "[]";
         StringBuilder t = new StringBuilder("[");
-        t.append("'switch-texture','switch-model','hitokoto','photo','info'");
+        // 已按需求移除 "info"（关于/信息）按钮
+        t.append("'switch-texture','switch-model','hitokoto','photo'");
         if (close) t.append(",'quit'");
         return t.append("]").toString();
     }

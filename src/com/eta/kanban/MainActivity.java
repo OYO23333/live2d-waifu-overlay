@@ -91,6 +91,18 @@ public class MainActivity extends Activity {
             }
         }));
 
+        root.addView(button("回到默认位置（右下角贴底）", new Runnable() {
+            public void run() {
+                Intent i = new Intent(MainActivity.this, OverlayService.class);
+                i.setAction(OverlayService.ACTION_RESET_POS);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(i);
+                } else {
+                    startService(i);
+                }
+            }
+        }));
+
         root.addView(button("切换点击穿透（当前：" + (Prefs.touchThrough(this) ? "开" : "关") + "）",
                 new Runnable() {
             public void run() {

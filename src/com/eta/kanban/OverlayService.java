@@ -38,6 +38,8 @@ public class OverlayService extends Service {
     public static final String ACTION_KEEPALIVE = "com.eta.kanban.action.KEEPALIVE";
     /** 切换点击穿透（开着的时候她收不到触摸，通知栏必须有入口切回来） */
     public static final String ACTION_TOGGLE_TOUCH = "com.eta.kanban.action.TOGGLE_TOUCH";
+    /** 回到默认位置：右下角、贴屏幕底边 */
+    public static final String ACTION_RESET_POS = "com.eta.kanban.action.RESET_POS";
 
     private static final String CHANNEL = "kanban_overlay";
     private static final int NOTI_ID = 1001;
@@ -139,6 +141,15 @@ public class OverlayService extends Service {
                 if (Prefs.visible(this)) attach();
                 updateNotification();
                 break;
+            case ACTION_RESET_POS: {
+                Prefs.set(this, "rightSide", true);
+                Prefs.set(this, "anchorTop", false);
+                Prefs.set(this, "edgeX", 0);
+                Prefs.set(this, "edgeY", 8);
+                if (!attached) attach(); else { applyWindowFlags(); resetPosition(); }
+                L.i("Kanban", "位置已重置：右下角、贴底边");
+                break;
+            }
             case ACTION_TOGGLE_TOUCH: {
                 boolean now = !Prefs.touchThrough(this);
                 Prefs.set(this, "touchThrough", now);
@@ -223,6 +234,8 @@ public class OverlayService extends Service {
                             | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.START;
+            // 不跟随输入法调整，否则键盘一弹出她就跑到屏幕中间
+            lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;
         }
         applyWindowFlags();
         resetPosition();
