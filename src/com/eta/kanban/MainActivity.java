@@ -154,11 +154,10 @@ public class MainActivity extends Activity {
         sb.append("\n守护状态：服务").append(OverlayService.isRunning() ? "在跑" : "未运行");
         sb.append("，用户期望=").append(Prefs.enabled(this) ? "在场" : "停用");
         sb.append("，当前").append(Prefs.visible(this) ? "显示" : "收起");
-        sb.append("\n当前设置：模型 id=").append(Prefs.modelId(this))
-          .append("  贴图=").append(Prefs.texId(this))
-          .append("  尺寸=").append(Prefs.sizeW(this)).append("x").append(Prefs.sizeH(this))
+        sb.append("\n当前设置：尺寸=").append(Prefs.sizeW(this)).append("x").append(Prefs.sizeH(this))
           .append("  停靠=").append(Prefs.rightSide(this) ? "右" : "左")
           .append("  透明度=").append(Prefs.alpha(this)).append("%");
+        sb.append("\n穿透=").append(Prefs.touchThrough(this) ? "开（纯装饰）" : "关（可交互）");
         status.setText(sb.toString());
     }
 

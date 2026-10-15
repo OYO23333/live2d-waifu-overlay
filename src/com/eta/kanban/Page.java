@@ -2,107 +2,106 @@ package com.eta.kanban;
 
 import android.content.Context;
 
-/** 生成看板娘页面：把设置注入成 kbn_settingN，并加胶水让"关闭/隐藏"能通知到 Service */
+/**
+ * 页面：改用 live2d-widget（stevenjoezhang/live2d-widget）的引擎。
+ * 它比原来 kbn.js（fghrsh 那套）干净得多：模块化、支持静态模型仓库（model_list.json + textures.cache）、
+ * 自带工具栏与关闭按钮，且长期维护。
+ *
+ * 全部资源都在 assets 里，由 LocalAssets 拦截 app.local 的请求提供，完全离线。
+ */
 public class Page {
 
     public static String html(Context c) {
-        int model = Prefs.modelId(c);
-        int tex = Prefs.texId(c);
         int w = Prefs.sizeW(c);
         int h = Prefs.sizeH(c);
+        int alpha = Math.max(10, Math.min(100, Prefs.alpha(c)));
         boolean showToolbar = Prefs.toolbar(c);
         boolean showClose = Prefs.closeBtn(c);
         boolean tips = Prefs.hitokoto(c);
-        int alpha = Math.max(10, Math.min(100, Prefs.alpha(c)));
         String side = Prefs.rightSide(c) ? "right" : "left";
 
         StringBuilder sb = new StringBuilder(6144);
         sb.append("<!doctype html><html><head><meta charset=\"utf-8\">")
           .append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,user-scalable=no\">")
-          .append("<style>html,body{margin:0;padding:0;background:transparent !important;")
-          .append("overflow:hidden;width:100%;height:100%;opacity:")
+          .append("<link rel=\"stylesheet\" href=\"/widget/waifu.css\">")
+          .append("<style>")
+          .append("html,body{margin:0;padding:0;background:transparent !important;overflow:hidden;")
+          .append("width:100%;height:100%;opacity:")
           .append(String.format(java.util.Locale.US, "%.2f", alpha / 100.0)).append("}");
-        if (!tips) sb.append(".waifu-tips{display:none !important}");
-        if (!showToolbar) sb.append(".waifu-tool{display:none !important}");
-        if (showToolbar && Prefs.alwaysToolbar(c))
-            sb.append(".waifu-tool{display:block !important}");
+        // 尺寸按设置走（覆盖它的默认值）
+        sb.append("#waifu{width:").append(w).append("px !important;height:").append(h)
+          .append("px !important;").append(side).append(":0 !important;bottom:0 !important;left:auto !important;right:auto !important;}");
+        if (Prefs.rightSide(c)) sb.append("#waifu{right:0 !important}"); else sb.append("#waifu{left:0 !important}");
+        sb.append("#live2d{width:100% !important;height:100% !important}");
+        if (!tips) sb.append("#waifu-tips{display:none !important}");
+        if (!showToolbar) sb.append("#waifu-tool{display:none !important}");
         sb.append("</style></head><body>")
-          .append("<script>")
-          // kbn.js 会在关闭时往 sessionStorage 写 waifu-dsiplay=none；
-          // 不在这里清掉的话，重新加载页面她会一直是隐藏的（"叫不回来"）
-          .append("try{sessionStorage.removeItem('waifu-dsiplay');}catch(e){}")
-          .append("window.kbn_setting0=").append(model).append(';')
-          .append("window.kbn_setting1=").append(tex).append(';')
-          .append("window.kbn_setting2=").append(showClose).append(';')
-          .append("window.kbn_setting3='").append(w).append('x').append(h).append("';")
-          .append("window.kbn_setting4='").append(side).append(":0';")
-          .append("window.kbn_setting5='190x56';")
-          .append("window.kbn_setting6='14px';")
-          .append("window.kbn_setting7='-14px';")
-          .append("window.kbn_setting8='22px';")
-          .append("window.kbn_setting9='36px';")
-          .append("window.kbn_setting10='hitokoto.cn';")
-          .append("</script>")
-          .append("<script src=\"kbn.js\"></script>")
+          // 关掉"上次点过关闭"的记忆，否则重载后她会一直不出现
+          .append("<script>try{localStorage.removeItem('waifu-display');")
+          .append("sessionStorage.removeItem('waifu-dsiplay');}catch(e){}</script>")
+          .append("<script type=\"module\" src=\"/widget/waifu-tips.js\"></script>")
           .append("<script>")
           .append("(function(){")
+          .append("  var tried=0;")
+          .append("  function boot(){")
+          .append("    if(typeof window.initWidget!=='function'){")
+          .append("      if(++tried<100) return setTimeout(boot,100);")
+          .append("      Android.log('initWidget 没就绪'); return;")
+          .append("    }")
+          .append("    var tools=").append(toolsJson(showToolbar, showClose)).append(";")
+          .append("    window.initWidget({")
+          .append("      waifuPath:'/widget/waifu-tips.json',")
+          .append("      cdnPath:'/modelrepo/',")
+          .append("      cubism2Path:'/widget/live2d.min.js',")
+          .append("      modelId:0,")
+          .append("      tools:tools,")
+          .append("      drag:false,")                 // 拖动由原生层做（长按+位置记忆）
+          .append("      showToggleAfterQuit:true,")
+          .append("      logLevel:'info'")
+          .append("    });")
+          .append("    Android.log('initWidget 已调用, tools='+tools.join(','));")
+          .append("    watch();")
+          .append("  }")
+          // 关闭（quit）后 #waifu 会被隐藏 → 通知原生层收起整个悬浮窗
           .append("  var done=false;")
           .append("  function tell(){ if(done) return; done=true;")
           .append("    try{ Android.log('JS：检测到关闭/隐藏'); Android.hide(); }catch(e){} }")
-          // 逐级向上看有没有被隐藏（kbn.js 关闭时是把外层 .waifu 设成 display:none）
-          .append("  function hiddenDeep(node){")
-          .append("    var n=node, guard=0;")
-          .append("    while(n && n.nodeType===1 && guard++<20){")
+          .append("  function hiddenDeep(n){ var g=0;")
+          .append("    while(n && n.nodeType===1 && g++<20){")
           .append("      var cs=getComputedStyle(n);")
-          .append("      if(cs.display==='none' || cs.visibility==='hidden') return true;")
-          .append("      n=n.parentElement;")
-          .append("    }")
-          .append("    return false;")
+          .append("      if(cs.display==='none'||cs.visibility==='hidden') return true;")
+          .append("      n=n.parentElement; }")
+          .append("    return false; }")
+          .append("  function watch(){")
+          .append("    setInterval(function(){")
+          .append("      if(done) return;")
+          .append("      var el=document.getElementById('waifu');")
+          .append("      if(!el){ tell(); return; }")
+          .append("      if(hiddenDeep(el)) tell();")
+          .append("    }, 700);")
+          // 工具栏区域上报（原生层据此不启动长按拖动，避免点关闭被吃掉）
+          .append("    setInterval(function(){")
+          .append("      try{ var t=document.getElementById('waifu-tool');")
+          .append("        if(!t) return; var b=t.getBoundingClientRect();")
+          .append("        if(b.width>0){ Android.setToolbarRect(b.left,b.top,b.width,b.height); }")
+          .append("      }catch(e){} }, 3000);")
           .append("  }")
-          .append("  function check(){")
-          .append("    if(done) return;")
-          .append("    var el=document.getElementById('live2d');")
-          .append("    if(!el){ tell(); return; }")
-          .append("    var wrap=document.querySelector('.waifu') || el;")
-          .append("    if(hiddenDeep(wrap)) tell();")
-          .append("  }")
-          .append("  setInterval(check, 700);")
-          // 最可靠的一条：直接绑关闭按钮
-          .append("  var tries=0;")
-          .append("  var bind=setInterval(function(){")
-          .append("    var b=document.querySelector('.waifu-tool .fui-cross');")
-          .append("    if(b){ b.addEventListener('click', function(){ setTimeout(tell, 80); });")
-          .append("           clearInterval(bind);")
-          .append("           try{ Android.log('已绑定关闭按钮'); }catch(e){} }")
-          .append("    else if(++tries>24){ clearInterval(bind); }")
-          .append("  }, 500);")
-          // 把工具栏区域报给服务：落在它上面的触摸不启动长按拖动，否则点 X 会被吃掉
-          .append("  function reportRect(){")
-          .append("    try{")
-          .append("      var t=document.querySelector('.waifu-tool');")
-          .append("      if(!t) return;")
-          .append("      var b=t.getBoundingClientRect();")
-          .append("      if(b.width>0){")
-          .append("        Android.setToolbarRect(b.left, b.top, b.width, b.height);")
-          .append("        Android.log('工具栏 '+Math.round(b.left)+','+Math.round(b.top)+' '+Math.round(b.width)+'x'+Math.round(b.height));")
-          .append("      }")
-          .append("      ['fui-eye','fui-user','fui-cross'].forEach(function(cls){")
-          .append("        var e=document.querySelector('.waifu-tool .'+cls);")
-          .append("        if(e){ var bb=e.getBoundingClientRect();")
-          .append("          if(bb.width>0) Android.log('图标 '+cls+' 中心 '+Math.round(bb.left+bb.width/2)+','+Math.round(bb.top+bb.height/2)); }")
-          .append("      });")
-          .append("    }catch(e){}")
-          .append("  }")
-          .append("  setTimeout(reportRect, 2500);")
-          .append("  setInterval(reportRect, 4000);")
-          // 诊断用：报告每一次点击落在页面的哪个坐标、命中了什么
+          // 诊断：点击命中
           .append("  document.addEventListener('click', function(ev){")
-          .append("    try{ var c=(ev.target.className||ev.target.tagName||'');")
-          .append("      Android.log('页面收到点击 client='+Math.round(ev.clientX)+','+Math.round(ev.clientY)+' 命中='+c); }catch(e){}")
-          .append("  }, true);")
+          .append("    try{ var id=(ev.target.id||ev.target.className||ev.target.tagName||'');")
+          .append("      Android.log('页面收到点击 '+Math.round(ev.clientX)+','+Math.round(ev.clientY)+' 命中='+id);")
+          .append("    }catch(e){} }, true);")
+          .append("  boot();")
           .append("})();")
-          .append("</script>")
-          .append("</body></html>");
+          .append("</script></body></html>");
         return sb.toString();
+    }
+
+    private static String toolsJson(boolean toolbar, boolean close) {
+        if (!toolbar) return close ? "['quit']" : "[]";
+        StringBuilder t = new StringBuilder("[");
+        t.append("'switch-texture','switch-model','hitokoto','photo','info'");
+        if (close) t.append(",'quit'");
+        return t.append("]").toString();
     }
 }

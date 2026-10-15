@@ -3,10 +3,7 @@ package com.eta.kanban;
 import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
@@ -14,23 +11,21 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
-import android.widget.Spinner;
 import android.widget.TextView;
 
+/**
+ * 设置项。角色与衣服由资源包决定（见 /workspace/make_assets.js），
+ * 页面上不再有"模型 id / 贴图 id"这类需要手填的参数。
+ */
 public class SettingsActivity extends Activity {
 
-    // 资源里打包的是哪个角色由生成脚本决定（assets_for_model.js / assets_from_npm.js）
-    private static final String[] MODEL_NAMES = {
-            "1 · 当前资源包里的角色"
-    };
-
-    private int w, h, alpha, edgeX, edgeY, tex;
+    private int w, h, alpha, edgeX, edgeY;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         w = Prefs.sizeW(this); h = Prefs.sizeH(this); alpha = Prefs.alpha(this);
-        edgeX = Prefs.edgeX(this); edgeY = Prefs.edgeY(this); tex = Prefs.texId(this);
+        edgeX = Prefs.edgeX(this); edgeY = Prefs.edgeY(this);
 
         final LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -41,45 +36,19 @@ public class SettingsActivity extends Activity {
         t.setTextSize(24);
         root.addView(t);
 
-        // 模型
-        root.addView(label("模型"));
-        Spinner sp = new Spinner(this);
-        ArrayAdapter<String> ad = new ArrayAdapter<String>(this,
-                android.R.layout.simple_spinner_dropdown_item, MODEL_NAMES);
-        sp.setAdapter(ad);
-        sp.setSelection(0);   // 资源里只有这一个角色
-        sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                Prefs.set(SettingsActivity.this, "modelId", pos + 1);
-            }
-            public void onNothingSelected(AdapterView<?> p) { }
-        });
-        root.addView(sp);
+        TextView hint = new TextView(this);
+        hint.setText("角色与衣服在资源包里（换人/换装在悬浮窗工具栏上操作，会自动记住）");
+        hint.setTextSize(13);
+        hint.setPadding(0, 12, 0, 0);
+        root.addView(hint);
 
-        // 贴图
-        root.addView(label("贴图 / 衣服 ID"));
-        Spinner sp2 = new Spinner(this);
-        String[] texs = {"1", "2", "3", "4"};
-        sp2.setAdapter(new ArrayAdapter<String>(this,
-                android.R.layout.simple_spinner_dropdown_item, texs));
-        sp2.setSelection(Math.max(0, Math.min(3, tex - 1)));
-        sp2.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                Prefs.set(SettingsActivity.this, "texId", pos + 1);
-            }
-            public void onNothingSelected(AdapterView<?> p) { }
-        });
-        root.addView(sp2);
-
-        // 尺寸
-        root.addView(slider("宽度", 160, 700, w, new SliderCB() {
+        root.addView(slider("宽度", 120, 700, w, new SliderCB() {
             public void on(int v) { w = v; Prefs.set(SettingsActivity.this, "sizeW", v); }
         }));
-        root.addView(slider("高度", 160, 700, h, new SliderCB() {
+        root.addView(slider("高度", 120, 700, h, new SliderCB() {
             public void on(int v) { h = v; Prefs.set(SettingsActivity.this, "sizeH", v); }
         }));
 
-        // 停靠
         root.addView(label("停靠位置"));
         RadioGroup rg = new RadioGroup(this);
         rg.setOrientation(RadioGroup.HORIZONTAL);
@@ -104,14 +73,12 @@ public class SettingsActivity extends Activity {
             public void on(int v) { alpha = v; Prefs.set(SettingsActivity.this, "alpha", v); }
         }));
 
-        // 开关
-        root.addView(check("显示工具栏（换人/换装/关闭）", Prefs.toolbar(this), "toolbar"));
+        root.addView(check("显示工具栏（换人 / 换装 / 一言 / 截图 / 关于）", Prefs.toolbar(this), "toolbar"));
         root.addView(check("显示关闭按钮", Prefs.closeBtn(this), "closeBtn"));
         root.addView(check("显示气泡台词", Prefs.hitokoto(this), "hitokoto"));
         root.addView(check("点击穿透（看板娘不接收触摸，纯装饰）", Prefs.touchThrough(this), "touchThrough"));
         root.addView(checkInverted("位置贴屏幕底边（不勾选则按距顶部算）", !Prefs.anchorTop(this), "anchorTop"));
-        root.addView(check("显示拖动手柄（不勾选也能用：长按看板娘 0.7 秒后按住拖动）", Prefs.showHandle(this), "showHandle"));
-        root.addView(check("工具栏常显（触屏必需，否则 X / 换装 / 换人点不到）", Prefs.alwaysToolbar(this), "alwaysToolbar"));
+        root.addView(check("显示拖动手柄（不勾选也能用：长按看板娘 0.8 秒后拖动）", Prefs.showHandle(this), "showHandle"));
         root.addView(check("开机自动上岗", Prefs.autoStart(this), "autoStart"));
 
         Button apply = new Button(this);
@@ -187,7 +154,7 @@ public class SettingsActivity extends Activity {
         return cb;
     }
 
-    /** 勾选状态与存储值相反的开关（例如"贴底边"= anchorTop 为 false） */
+    /** 勾选状态与存储值相反的开关（例如"贴底边" = anchorTop 为 false） */
     private CheckBox checkInverted(String text, boolean value, final String key) {
         final CheckBox cb = new CheckBox(this);
         cb.setText(text);
