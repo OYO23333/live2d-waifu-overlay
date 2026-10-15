@@ -168,17 +168,13 @@ public class OverlayService extends Service {
                 break;
             case ACTION_RESET_POS: {
                 Prefs.resetLook(this);            // 大小/边距/气泡/工具栏 回默认
-                if (!attached) attach(); else { applyWindowFlags(); resetPosition(); }
+                detach();                         // 重建视图，气泡/工具栏等外观设置才会生效
+                attach();
                 L.i("Kanban", "已恢复默认外观与位置（右下角贴底）");
                 break;
             }
             case ACTION_TOGGLE_TOUCH: {
-                boolean now = !Prefs.touchThrough(this);
-                Prefs.set(this, "touchThrough", now);
-                applyWindowFlags();
-                updateNotification();
-                L.i("Kanban", "点击穿透 = " + now
-                        + (now ? "（她现在纯装饰，触摸会穿透到下面的应用）" : "（恢复可交互）"));
+                setTouchThrough(!Prefs.touchThrough(this), "");
                 break;
             }
             default: // ACTION_SHOW
@@ -290,6 +286,26 @@ public class OverlayService extends Service {
                 wm.updateViewLayout(container, lp);
             } catch (Throwable ignored) {
             }
+        }
+    }
+
+    /** 统一切换点击穿透：改配置、重设窗口 flag、刷新通知，并把新状态回传给工具栏按钮 */
+    private void setTouchThrough(boolean now, String src) {
+        Prefs.set(this, "touchThrough", now);
+        applyWindowFlags();
+        updateNotification();
+        L.i("Kanban", src + "点击穿透 = " + now
+                + (now ? "（她纯装饰，切回请点通知栏按钮）" : "（恢复可交互）"));
+        final String js = "window.__etaTouch && window.__etaTouch(" + now + ")";
+        if (web != null) {
+            web.post(new Runnable() {
+                public void run() {
+                    try {
+                        web.evaluateJavascript(js, null);
+                    } catch (Throwable ignored) {
+                    }
+                }
+            });
         }
     }
 
@@ -600,6 +616,12 @@ public class OverlayService extends Service {
         public void setToolbarRect(float left, float top, float w, float h) {
             float d = getResources().getDisplayMetrics().density;
             toolbarRect = new float[]{left * d, top * d, w * d, h * d};
+        }
+
+        /** 工具栏上的“点击穿透”按钮：切换后同步按钮外观；开启后她收不到触摸，用通知栏按钮切回 */
+        @JavascriptInterface
+        public void toggleTouch() {
+            setTouchThrough(!Prefs.touchThrough(OverlayService.this), "工具栏切换");
         }
 
         @JavascriptInterface

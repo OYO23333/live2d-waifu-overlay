@@ -108,7 +108,7 @@ public class SettingsActivity extends Activity {
         root.addView(slider("气泡字号（px）", 10, 24, tipsFont, new SliderCB() {
             public void on(int v) { tipsFont = v; Prefs.set(SettingsActivity.this, "tipsFont", v); }
         }));
-        root.addView(slider("气泡 Y 轴偏移（px，负=上移）", -60, 60, tipsOffY, new SliderCB() {
+        root.addView(slider("气泡 Y 轴偏移（px，向下）", 0, 60, tipsOffY, new SliderCB() {
             public void on(int v) { tipsOffY = v; Prefs.set(SettingsActivity.this, "tipsOffY", v); }
         }));
         root.addView(check("显示气泡", Prefs.hitokoto(this), "hitokoto"));

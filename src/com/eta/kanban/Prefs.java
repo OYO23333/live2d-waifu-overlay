@@ -28,7 +28,7 @@ public class Prefs {
     public static int tipsW(Context c)        { return of(c).getInt("tipsW", 170); }        // px
     public static int tipsH(Context c)        { return of(c).getInt("tipsH", 50); }         // px
     public static int tipsFont(Context c)     { return of(c).getInt("tipsFont", 13); }      // px
-    public static int tipsOffY(Context c)     { return of(c).getInt("tipsOffY", -6); }      // px（负=上移）
+    public static int tipsOffY(Context c)     { return of(c).getInt("tipsOffY", 0); }       // px（>=0，向下）
     public static boolean hitokoto(Context c) { return of(c).getBoolean("hitokoto", true); } // 是否显示气泡
 
     // ---- 工具栏 ----
@@ -58,7 +58,7 @@ public class Prefs {
           .putInt("sizeW", 220).putInt("sizeH", 210).putInt("alpha", 100)
           .putBoolean("rightSide", true).putBoolean("anchorTop", false)
           .putInt("edgeX", 0).putInt("edgeY", 8)
-          .putInt("tipsW", 170).putInt("tipsH", 50).putInt("tipsFont", 13).putInt("tipsOffY", -6)
+          .putInt("tipsW", 170).putInt("tipsH", 50).putInt("tipsFont", 13).putInt("tipsOffY", 0)
           .putInt("toolIcon", 20).putInt("toolGap", 4)
           .apply();
     }

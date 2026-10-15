@@ -51,15 +51,20 @@ public class Page {
         } else {
             sb.append("#waifu-tool{display:none !important}");
         }
-        // 气泡：大小/字号/Y 轴偏移可调
+        // 穿透按钮开着时换成暖色高亮，一眼能看出"她现在不听触摸"
+        sb.append("#waifu-tool #eta-touch.on svg{fill:#ffd166 !important;")
+          .append("filter:drop-shadow(0 0 3px rgba(255,209,102,.9)) !important}");
         if (showTips) {
-            sb.append("#waifu-tips{width:").append(tipsW).append("px !important;")
-              .append("min-height:").append(tipsH).append("px !important;")
-              .append("max-height:").append(tipsH).append("px !important;")
+            int offY = Math.max(0, tipsOffY);
+            sb.append("#waifu-tips{position:absolute !important;left:8px !important;right:8px !important;")
+              .append("top:").append(offY).append("px !important;")
+              .append("width:auto !important;box-sizing:border-box !important;")
+              .append("min-height:0 !important;max-height:").append(tipsH).append("px !important;")
               .append("font-size:").append(tipsFont).append("px !important;")
               .append("line-height:").append(Math.max(tipsFont + 6, 18)).append("px !important;")
-              .append("margin:").append(tipsOffY).append("px 8px !important;")
-              .append("padding:4px 8px !important;border-radius:10px !important;overflow:hidden !important}");
+              .append("margin:0 !important;padding:5px 10px !important;border-radius:10px !important;")
+              .append("overflow:hidden !important}");
+            sb.append("#waifu-tips{width:min(").append(tipsW).append("px, calc(100% - 16px)) !important}");
         } else {
             sb.append("#waifu-tips{display:none !important}");
         }
@@ -96,7 +101,30 @@ public class Page {
           .append("    });")
           .append("    try{Android.log('initWidget 已调用, tools='+tools.join(',')+' modelId=")
           .append(modelId - 1).append(" texId=").append(texId - 1).append("');}catch(e){}")
+          .append("    addTouchButton(").append(Prefs.touchThrough(c)).append(");")
           .append("    watch();")
+          .append("  }")
+          // 工具栏追加"点击穿透"按钮（图标风格与其它按钮一致，插在关闭按钮之前）
+          .append("  function addTouchButton(on){")
+          .append("    try{")
+          .append("      var tool=document.getElementById('waifu-tool');")
+          .append("      if(!tool||document.getElementById('eta-touch')) return;")
+          .append("      var b=document.createElement('span');")
+          .append("      b.id='eta-touch';")
+          .append("      b.innerHTML='<svg viewBox=\"0 0 24 24\"><path d=\"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 2.6c1.86 0 3.56.69 4.85 1.82L6.42 16.85A7.38 7.38 0 0 1 4.6 12c0-4.08 3.32-7.4 7.4-7.4zm0 14.8c-1.86 0-3.56-.69-4.85-1.82L17.58 7.15A7.38 7.38 0 0 1 19.4 12c0 4.08-3.32 7.4-7.4 7.4z\"/></svg>';")
+          .append("      b.style.cursor='pointer';")
+          .append("      b.addEventListener('click',function(ev){ ev.stopPropagation();")
+          .append("        try{ Android.toggleTouch(); }catch(e){} }, true);")
+          .append("      var quit=tool.querySelector('.fui-cross');")
+          .append("      if(quit) tool.insertBefore(b,quit); else tool.appendChild(b);")
+          .append("      window.__etaTouch=function(state){")
+          .append("        b.className = state ? 'on' : '';")
+          .append("        b.title = state ? '点击穿透已开启：她现在是纯装饰，切回请用通知栏按钮'")
+          .append("                      : '点击穿透：点一下，触摸就会穿到她后面的应用';")
+          .append("      };")
+          .append("      window.__etaTouch(on);")
+          .append("      try{Android.log('已加装点击穿透按钮, 当前='+on);}catch(e){}")
+          .append("    }catch(e){}")
           .append("  }")
           .append("  var done=false;")
           .append("  function tell(){ if(done) return; done=true;")
@@ -120,17 +148,16 @@ public class Page {
           .append("        if(!t) return; var b=t.getBoundingClientRect();")
           .append("        if(b.width>0){ Android.setToolbarRect(b.left,b.top,b.width,b.height); }")
           .append("      }catch(e){} }, 3000);")
-          // 诊断：DOM 几何 / 样式 / rAF（排查渲染问题用，日志走文件）
+          // 诊断：只在“她没渲染出来”时报警，正常时闭嘴（日志走文件，避免无限增长）
           .append("    setInterval(function(){")
           .append("      try{")
-          .append("        function info(el){ if(!el) return 'null';")
-          .append("          var r=el.getBoundingClientRect(), cs=getComputedStyle(el);")
-          .append("          return Math.round(r.width)+'x'+Math.round(r.height)")
-          .append("            +' d='+cs.display+' v='+cs.visibility+' o='+cs.opacity; }")
-          .append("        Android.log('DOM #waifu='+info(document.getElementById('waifu'))")
-          .append("          +' #live2d='+info(document.getElementById('live2d'))")
-          .append("          +' 帧='+window.__frames);")
-          .append("      }catch(e){} }, 8000);")
+          .append("        var el=document.getElementById('waifu'); if(!el) return;")
+          .append("        var r=el.getBoundingClientRect(), cs=getComputedStyle(el);")
+          .append("        if(r.width<2||r.height<2||cs.display==='none'||cs.visibility==='hidden'){")
+          .append("          Android.log('警告：看板娘没渲染出来 #waifu='+Math.round(r.width)+'x'+Math.round(r.height)")
+          .append("            +' d='+cs.display+' v='+cs.visibility+' 帧='+window.__frames);")
+          .append("        }")
+          .append("      }catch(e){} }, 15000);")
           .append("  }")
           .append("  document.addEventListener('click', function(ev){")
           .append("    try{ var id=(ev.target.id||ev.target.className||ev.target.tagName||'');")
