@@ -115,7 +115,7 @@ public class SettingsActivity extends Activity {
 
         // ---------- 工具栏 ----------
         root.addView(label("工具栏"));
-        root.addView(check("显示工具栏（换装/换人/一言/截图/关闭）", Prefs.toolbar(this), "toolbar"));
+        root.addView(check("显示工具栏（穿透/换装/换人/一言/截图/关闭）", Prefs.toolbar(this), "toolbar"));
         root.addView(check("显示关闭按钮", Prefs.closeBtn(this), "closeBtn"));
         root.addView(slider("图标大小（px）", 12, 40, toolIcon, new SliderCB() {
             public void on(int v) { toolIcon = v; Prefs.set(SettingsActivity.this, "toolIcon", v); }
