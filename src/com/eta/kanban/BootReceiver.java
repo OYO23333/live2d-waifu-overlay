@@ -19,14 +19,15 @@ public class BootReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
+        L.init(ctx);
         if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
                 && !"android.intent.action.QUICKBOOT_POWERON".equals(intent.getAction())) return;
         if (!Prefs.autoStart(ctx)) {
-            android.util.Log.i("Kanban", "开机自启：用户关闭了该开关");
+            L.i("Kanban", "开机自启：用户关闭了该开关");
             return;
         }
         if (!Prefs.enabled(ctx)) {
-            android.util.Log.i("Kanban", "开机自启：用户已停用看板娘，不拉起");
+            L.i("Kanban", "开机自启：用户已停用看板娘，不拉起");
             return;
         }
 
@@ -38,9 +39,9 @@ public class BootReceiver extends BroadcastReceiver {
             } else {
                 ctx.startService(svc);
             }
-            android.util.Log.i("Kanban", "开机自启：已拉起悬浮窗服务");
+            L.i("Kanban", "开机自启：已拉起悬浮窗服务");
         } catch (Throwable t) {
-            android.util.Log.w("Kanban", "开机自启被系统拦截，退化为通知：" + t);
+            L.w("Kanban", "开机自启被系统拦截，退化为通知：" + t);
             notifyFallback(ctx);
         }
     }

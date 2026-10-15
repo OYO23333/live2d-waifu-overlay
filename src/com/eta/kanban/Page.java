@@ -28,13 +28,32 @@ public class Page {
           .append("html,body{margin:0;padding:0;background:transparent !important;overflow:hidden;")
           .append("width:100%;height:100%;opacity:")
           .append(String.format(java.util.Locale.US, "%.2f", alpha / 100.0)).append("}");
-        // 尺寸按设置走（覆盖它的默认值）
-        sb.append("#waifu{width:").append(w).append("px !important;height:").append(h)
-          .append("px !important;").append(side).append(":0 !important;bottom:0 !important;left:auto !important;right:auto !important;}");
-        if (Prefs.rightSide(c)) sb.append("#waifu{right:0 !important}"); else sb.append("#waifu{left:0 !important}");
-        sb.append("#live2d{width:100% !important;height:100% !important}");
-        if (!tips) sb.append("#waifu-tips{display:none !important}");
-        if (!showToolbar) sb.append("#waifu-tool{display:none !important}");
+        // 让 #waifu 铺满我们的悬浮窗（窗口位置/大小由原生层按设置算好），
+        // 去掉它自带的上移位移与滑入动画，避免和窗口定位打架
+        sb.append("#waifu{position:fixed !important;left:0 !important;right:0 !important;bottom:0 !important;")
+          .append("top:auto !important;width:100% !important;height:100% !important;")
+          .append("transform:none !important;transition:none !important;z-index:1}");
+        sb.append("#waifu:hover{transform:none !important}");
+        sb.append("#waifu.waifu-active{bottom:0 !important}");
+        // 画布跟着容器走（它默认写死 300x300，直接铺满会让模型偏大）
+        sb.append("#live2d{width:auto !important;height:100% !important;max-width:100% !important;margin:0 auto !important}");
+        // 关闭后那个黄色唤起按钮我们用通知替代，隐藏掉
+        sb.append("#waifu-toggle{display:none !important}");
+        // 工具栏：触屏没有 hover，必须常显，并挪进窗口内右上角
+        if (showToolbar) {
+            sb.append("#waifu-tool{opacity:1 !important;right:0 !important;top:6px !important;gap:6px !important}");
+            sb.append("#waifu-tool svg{fill:#e6edf5 !important;filter:drop-shadow(0 0 2px rgba(0,0,0,.75))}");
+        } else {
+            sb.append("#waifu-tool{display:none !important}");
+        }
+        // 气泡限制在窗口内
+        if (tips) {
+            sb.append("#waifu-tips{width:calc(100% - 16px) !important;margin:-6px 8px !important;")
+              .append("min-height:0 !important;font-size:13px !important;line-height:20px !important;")
+              .append("padding:4px 8px !important;border-radius:10px !important}");
+        } else {
+            sb.append("#waifu-tips{display:none !important}");
+        }
         sb.append("</style></head><body>")
           // 关掉"上次点过关闭"的记忆，否则重载后她会一直不出现
           .append("<script>try{localStorage.removeItem('waifu-display');")
@@ -43,6 +62,9 @@ public class Page {
           .append("<script>")
           .append("(function(){")
           .append("  var tried=0;")
+          // 帧计数：判断 requestAnimationFrame 有没有在跑（WebView 里可能被节流）
+          .append("  window.__frames=0;")
+          .append("  (function tick(){ window.__frames++; requestAnimationFrame(tick); })();")
           .append("  function boot(){")
           .append("    if(typeof window.initWidget!=='function'){")
           .append("      if(++tried<100) return setTimeout(boot,100);")
@@ -85,6 +107,20 @@ public class Page {
           .append("        if(!t) return; var b=t.getBoundingClientRect();")
           .append("        if(b.width>0){ Android.setToolbarRect(b.left,b.top,b.width,b.height); }")
           .append("      }catch(e){} }, 3000);")
+          // 诊断：自报关键元素的几何与样式，排查"画不出来"
+          .append("    setInterval(function(){")
+          .append("      try{")
+          .append("        function info(el){ if(!el) return 'null';")
+          .append("          var r=el.getBoundingClientRect(), cs=getComputedStyle(el);")
+          .append("          return Math.round(r.left)+','+Math.round(r.top)+' '+Math.round(r.width)+'x'+Math.round(r.height)")
+          .append("            +' d='+cs.display+' v='+cs.visibility+' o='+cs.opacity+' tr='+cs.transform; }")
+          .append("        Android.log('DOM #waifu='+info(document.getElementById('waifu')));")
+          .append("        Android.log('DOM #live2d='+info(document.getElementById('live2d'))")
+          .append("          +' attr='+(document.getElementById('live2d')||{}).width+'x'+(document.getElementById('live2d')||{}).height);")
+          .append("        var cv=document.getElementById('waifu-canvas');")
+          .append("        if(cv) Android.log('DOM container='+info(cv));")
+          .append("        Android.log('DOM rAF 帧数='+window.__frames+' 可见性='+document.visibilityState);")
+          .append("      }catch(e){} }, 4000);")
           .append("  }")
           // 诊断：点击命中
           .append("  document.addEventListener('click', function(ev){")

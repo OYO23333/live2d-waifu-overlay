@@ -66,13 +66,13 @@ public class OverlayService extends Service {
                     web.onPause();
                     web.pauseTimers();
                 }
-                android.util.Log.i("Kanban", "熄屏：已暂停渲染");
+                L.i("Kanban", "熄屏：已暂停渲染");
             } else if (Intent.ACTION_SCREEN_ON.equals(a)) {
                 if (web != null) {
                     web.resumeTimers();
                     web.onResume();
                 }
-                android.util.Log.i("Kanban", "亮屏：已恢复渲染");
+                L.i("Kanban", "亮屏：已恢复渲染");
             }
         }
     };
@@ -85,6 +85,7 @@ public class OverlayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        L.init(this);
         sRunning = true;
         wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         updateScreenSize();
@@ -143,7 +144,7 @@ public class OverlayService extends Service {
                 Prefs.set(this, "touchThrough", now);
                 applyWindowFlags();
                 updateNotification();
-                android.util.Log.i("Kanban", "点击穿透 = " + now
+                L.i("Kanban", "点击穿透 = " + now
                         + (now ? "（她现在纯装饰，触摸会穿透到下面的应用）" : "（恢复可交互）"));
                 break;
             }
@@ -229,11 +230,11 @@ public class OverlayService extends Service {
         try {
             wm.addView(container, lp);
             attached = true;
-            android.util.Log.i("Kanban", "attach ok " + lp.width + "x" + lp.height
+            L.i("Kanban", "attach ok " + lp.width + "x" + lp.height
                     + " at " + lp.x + "," + lp.y + " touchThrough=" + Prefs.touchThrough(this));
         } catch (Throwable t) {
             attached = false;
-            android.util.Log.e("Kanban", "attach failed: " + t);
+            L.e("Kanban", "attach failed: " + t);
         }
         updateNotification();
     }
@@ -330,7 +331,7 @@ public class OverlayService extends Service {
             dragging = true;
             dragArmed = false;          // 先等第一次真正的移动再锚定，避免手指抖动把窗口带跑
             vibrate();
-            android.util.Log.i("Kanban", "长按触发：进入拖动模式");
+            L.i("Kanban", "长按触发：进入拖动模式");
         }
     };
 
@@ -422,7 +423,7 @@ public class OverlayService extends Service {
         Prefs.set(this, "edgeX", px2dp(edge));
         Prefs.set(this, "edgeY", px2dp(edgeY));
         Prefs.set(this, "anchorTop", anchorTop);
-        android.util.Log.i("Kanban", "位置已保存 侧=" + (rightSide ? "右" : "左")
+        L.i("Kanban", "位置已保存 侧=" + (rightSide ? "右" : "左")
                 + " " + (anchorTop ? "上锚定" : "下锚定")
                 + " edgeX=" + px2dp(edge) + "dp edgeY=" + px2dp(edgeY) + "dp");
     }
@@ -470,13 +471,13 @@ public class OverlayService extends Service {
         if (attached) {
             applyWindowFlags();
             resetPosition();
-            android.util.Log.i("Kanban", "配置变化：重算尺寸与位置 " + screenW + "x" + screenH);
+            L.i("Kanban", "配置变化：重算尺寸与位置 " + screenW + "x" + screenH);
         }
     }
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
-        android.util.Log.w("Kanban", "任务被划掉，enabled=" + Prefs.enabled(this));
+        L.w("Kanban", "任务被划掉，enabled=" + Prefs.enabled(this));
         if (Prefs.enabled(this)) {
             WatchdogReceiver.schedule(this);
         }
@@ -554,7 +555,7 @@ public class OverlayService extends Service {
     public class Bridge {
         @JavascriptInterface
         public void hide() {
-            android.util.Log.i("Kanban", "Bridge.hide() 被调用（关闭按钮生效）");
+            L.i("Kanban", "Bridge.hide() 被调用（关闭按钮生效）");
             Prefs.setVisible(OverlayService.this, false);
             detach();
             updateNotification();
@@ -568,7 +569,7 @@ public class OverlayService extends Service {
 
         @JavascriptInterface
         public void log(String msg) {
-            android.util.Log.i("Kanban", msg);
+            L.i("Kanban", msg);
         }
     }
 }

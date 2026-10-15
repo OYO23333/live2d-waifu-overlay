@@ -20,12 +20,13 @@ public class WatchdogReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
+        L.init(ctx);
         if (!Prefs.enabled(ctx)) {
-            android.util.Log.i("Kanban", "守护：用户已停用，不拉起");
+            L.i("Kanban", "守护：用户已停用，不拉起");
             return;
         }
         if (OverlayService.isRunning()) {
-            android.util.Log.i("Kanban", "守护：服务在跑，无需处理");
+            L.i("Kanban", "守护：服务在跑，无需处理");
             return;
         }
 
@@ -37,9 +38,9 @@ public class WatchdogReceiver extends BroadcastReceiver {
             } else {
                 ctx.startService(svc);
             }
-            android.util.Log.i("Kanban", "守护：已重新拉起悬浮窗服务");
+            L.i("Kanban", "守护：已重新拉起悬浮窗服务");
         } catch (Throwable t) {
-            android.util.Log.w("Kanban", "守护：后台启动被拦，退化为通知：" + t);
+            L.w("Kanban", "守护：后台启动被拦，退化为通知：" + t);
             notifyFallback(ctx);
         }
     }
@@ -78,9 +79,9 @@ public class WatchdogReceiver extends BroadcastReceiver {
         try {
             am.setInexactRepeating(android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     System.currentTimeMillis() + interval, interval, pi);
-            android.util.Log.i("Kanban", "守护闹钟已注册（15 分钟一次）");
+            L.i("Kanban", "守护闹钟已注册（15 分钟一次）");
         } catch (Throwable t) {
-            android.util.Log.w("Kanban", "守护闹钟注册失败：" + t);
+            L.w("Kanban", "守护闹钟注册失败：" + t);
         }
     }
 }

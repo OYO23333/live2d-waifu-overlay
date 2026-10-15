@@ -54,11 +54,11 @@ public class LocalAssets extends WebViewClient {
         try {
             InputStream in = ctx.getAssets().open(assetPath);
             if (!assetPath.startsWith("widget/")) {
-                android.util.Log.i("Kanban", "srv " + assetPath);
+                L.i("Kanban", "srv " + assetPath);
             }
             return new WebResourceResponse(mimeOf(assetPath), "utf-8", 200, "OK", headers, in);
         } catch (IOException e) {
-            android.util.Log.w("Kanban", "MISS " + assetPath);
+            L.w("Kanban", "MISS " + assetPath);
             return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found",
                     headers, null);
         }
