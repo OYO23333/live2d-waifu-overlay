@@ -97,7 +97,7 @@ public class SettingsActivity extends Activity {
         root.addView(slider("到边距 X", 0, 300, edgeX, new SliderCB() {
             public void on(int v) { edgeX = v; Prefs.set(SettingsActivity.this, "edgeX", v); }
         }));
-        root.addView(slider("距顶部 Y", 0, 1500, edgeY, new SliderCB() {
+        root.addView(slider("到边距 Y（贴底时=离底边的距离）", 0, 1500, edgeY, new SliderCB() {
             public void on(int v) { edgeY = v; Prefs.set(SettingsActivity.this, "edgeY", v); }
         }));
         root.addView(slider("透明度 %", 20, 100, alpha, new SliderCB() {
@@ -109,7 +109,9 @@ public class SettingsActivity extends Activity {
         root.addView(check("显示关闭按钮", Prefs.closeBtn(this), "closeBtn"));
         root.addView(check("显示气泡台词", Prefs.hitokoto(this), "hitokoto"));
         root.addView(check("点击穿透（看板娘不接收触摸，纯装饰）", Prefs.touchThrough(this), "touchThrough"));
-        root.addView(check("显示拖动手柄（拖它挪位置，位置自动记住）", Prefs.showHandle(this), "showHandle"));
+        root.addView(checkInverted("位置贴屏幕底边（不勾选则按距顶部算）", !Prefs.anchorTop(this), "anchorTop"));
+        root.addView(check("显示拖动手柄（不勾选也能用：长按看板娘 0.7 秒后按住拖动）", Prefs.showHandle(this), "showHandle"));
+        root.addView(check("工具栏常显（触屏必需，否则 X / 换装 / 换人点不到）", Prefs.alwaysToolbar(this), "alwaysToolbar"));
         root.addView(check("开机自动上岗", Prefs.autoStart(this), "autoStart"));
 
         Button apply = new Button(this);
@@ -180,6 +182,19 @@ public class SettingsActivity extends Activity {
         cb.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(android.widget.CompoundButton v, boolean checked) {
                 Prefs.set(SettingsActivity.this, key, checked);
+            }
+        });
+        return cb;
+    }
+
+    /** 勾选状态与存储值相反的开关（例如"贴底边"= anchorTop 为 false） */
+    private CheckBox checkInverted(String text, boolean value, final String key) {
+        final CheckBox cb = new CheckBox(this);
+        cb.setText(text);
+        cb.setChecked(value);
+        cb.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(android.widget.CompoundButton v, boolean checked) {
+                Prefs.set(SettingsActivity.this, key, !checked);
             }
         });
         return cb;

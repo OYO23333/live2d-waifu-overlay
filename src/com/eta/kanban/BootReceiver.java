@@ -19,8 +19,16 @@ public class BootReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
-        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) return;
-        if (!Prefs.autoStart(ctx)) return;
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
+                && !"android.intent.action.QUICKBOOT_POWERON".equals(intent.getAction())) return;
+        if (!Prefs.autoStart(ctx)) {
+            android.util.Log.i("Kanban", "开机自启：用户关闭了该开关");
+            return;
+        }
+        if (!Prefs.enabled(ctx)) {
+            android.util.Log.i("Kanban", "开机自启：用户已停用看板娘，不拉起");
+            return;
+        }
 
         Intent svc = new Intent(ctx, OverlayService.class);
         svc.setAction(OverlayService.ACTION_SHOW);

@@ -20,10 +20,21 @@ public class Prefs {
     public static int alpha(Context c)        { return of(c).getInt("alpha", 100); }      // 0-100
     public static boolean rightSide(Context c){ return of(c).getBoolean("rightSide", true); }
     public static int edgeX(Context c)        { return of(c).getInt("edgeX", 0); }
-    public static int edgeY(Context c)        { return of(c).getInt("edgeY", 40); }
+    public static int edgeY(Context c)        { return of(c).getInt("edgeY", 8); }
+    /** true=距顶部算，false=距底部算（默认贴底边） */
+    public static boolean anchorTop(Context c)    { return of(c).getBoolean("anchorTop", false); }
     public static boolean touchThrough(Context c) { return of(c).getBoolean("touchThrough", false); }
-    public static boolean showHandle(Context c)   { return of(c).getBoolean("showHandle", true); }
-    public static boolean autoStart(Context c)    { return of(c).getBoolean("autoStart", false); }
+    /** 工具栏常显（触屏没有 hover，不常显的话 X / 换装 / 换人都点不到） */
+    public static boolean alwaysToolbar(Context c) { return of(c).getBoolean("alwaysToolbar", true); }
+    public static boolean showHandle(Context c)   { return of(c).getBoolean("showHandle", false); }
+    public static boolean autoStart(Context c)    { return of(c).getBoolean("autoStart", true); }
+
+    /** 用户期望"看板娘应该在场"（被系统杀掉后守护机制据此把它拉回来） */
+    public static boolean enabled(Context c)      { return of(c).getBoolean("enabled", false); }
+    /** 当前是否显示中（收起后仍可能是 enabled） */
+    public static boolean visible(Context c)      { return of(c).getBoolean("visible", true); }
+    public static void setEnabled(Context c, boolean v) { of(c).edit().putBoolean("enabled", v).apply(); }
+    public static void setVisible(Context c, boolean v) { of(c).edit().putBoolean("visible", v).apply(); }
 
     public static void set(Context c, String k, int v)     { of(c).edit().putInt(k, v).apply(); }
     public static void set(Context c, String k, boolean v) { of(c).edit().putBoolean(k, v).apply(); }

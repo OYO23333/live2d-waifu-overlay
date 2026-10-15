@@ -90,6 +90,22 @@ public class MainActivity extends Activity {
             }
         }));
 
+        root.addView(button("切换点击穿透（当前：" + (Prefs.touchThrough(this) ? "开" : "关") + "）",
+                new Runnable() {
+            public void run() {
+                Intent i = new Intent(MainActivity.this, OverlayService.class);
+                i.setAction(OverlayService.ACTION_TOGGLE_TOUCH);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(i);
+                } else {
+                    startService(i);
+                }
+                status.postDelayed(new Runnable() {
+                    public void run() { recreate(); }
+                }, 400);
+            }
+        }));
+
         root.addView(button("退出服务", new Runnable() {
             public void run() { send(OverlayService.ACTION_EXIT); }
         }));
@@ -135,6 +151,9 @@ public class MainActivity extends Activity {
         sb.append("悬浮窗权限：").append(overlayGranted() ? "已授予" : "未授予");
         sb.append("\n通知权限：").append(notifGranted() ? "已授予" : "未授予");
         sb.append("\n电池优化：").append(ignoringBattery() ? "已忽略（好）" : "仍受限");
+        sb.append("\n守护状态：服务").append(OverlayService.isRunning() ? "在跑" : "未运行");
+        sb.append("，用户期望=").append(Prefs.enabled(this) ? "在场" : "停用");
+        sb.append("，当前").append(Prefs.visible(this) ? "显示" : "收起");
         sb.append("\n当前设置：模型 id=").append(Prefs.modelId(this))
           .append("  贴图=").append(Prefs.texId(this))
           .append("  尺寸=").append(Prefs.sizeW(this)).append("x").append(Prefs.sizeH(this))
