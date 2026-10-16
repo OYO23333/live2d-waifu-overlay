@@ -15,10 +15,12 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const OUT = '/workspace/kanban/assets';
-const FGHRSH = '/workspace/live2d_api/live2d_api-master';
-const L2DW_TGZ = '/workspace/l2dw.tgz';
-const WORK = '/workspace/.make-assets-work';
+// 路径都可覆盖，默认按"脚本放在项目根目录"来推算
+const ROOT = process.env.KANBAN_ROOT || __dirname;
+const OUT = process.env.ASSETS_OUT || path.join(ROOT, 'assets');
+const FGHRSH = process.env.FGHRSH_DIR || path.resolve(ROOT, '..', 'live2d_api', 'live2d_api-master');
+const L2DW_TGZ = process.env.L2DW_TGZ || path.resolve(ROOT, '..', 'l2dw.tgz');
+const WORK = path.join(ROOT, '.make-assets-work');
 
 const argv = process.argv.slice(2);
 const argVal = k => {

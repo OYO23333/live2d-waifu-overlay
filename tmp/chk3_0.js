@@ -1,1 +1,0 @@
-try{localStorage.removeItem('waifu-display');sessionStorage.removeItem('waifu-dsiplay');localStorage.setItem('modelId','0');localStorage.setItem('modelTexturesId','0');}catch(e){}

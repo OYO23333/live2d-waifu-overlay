@@ -16,3 +16,6 @@ assets/
 *.swp
 *~
 .DS_Store
+
+# 工程内的临时文件（截图、下载包等）
+tmp/

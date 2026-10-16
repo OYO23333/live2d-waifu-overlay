@@ -35,7 +35,7 @@ assets/
 
 ## 资源怎么来
 
-用 `/workspace/make_assets.js`（一条命令，两种来源）：
+用仓库里的 `make_assets.js`（一条命令，两种来源；输出目录等可用环境变量覆盖）：
 
 ```sh
 # 从 fghrsh/live2d_api 仓库取（Pio 有 87 套衣服）
