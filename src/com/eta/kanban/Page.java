@@ -71,8 +71,7 @@ public class Page {
               .append("font-size:").append(tipsFont).append("px !important;")
               .append("line-height:").append(Math.max(tipsFont + 6, 18)).append("px !important;")
               .append("margin:0 !important;padding:5px 10px !important;border-radius:10px !important;")
-              .append("overflow:hidden !important;text-overflow:clip !important;")
-              .append("animation:none !important;transform:none !important;}")
+              .append("overflow:hidden !important;text-overflow:clip !important;}")
               .append("#waifu-tips{width:min(").append(tipsW).append("px, calc(100% - 16px)) !important}");
             // 气泡显隐引擎用 class，不写 display 拦截，保持引擎的 opacity 过渡
             sb.append("#waifu-tips.waifu-tips-active{opacity:1 !important}");
@@ -148,7 +147,7 @@ public class Page {
           .append("      if(quit) tool.insertBefore(b,quit); else tool.appendChild(b);")
           .append("      window.__etaTouch=function(state){")
           .append("        b.className = state ? 'on' : '';")
-          .append("        b.title = state ? '点击穿透已开启：窗口外照常穿透，点她本人即关闭'")
+          .append("        b.title = state ? '点击穿透已开启：窗口外照常穿透，再点我切回'")
           .append("                      : '点击穿透：点一下，窗口外的触摸就会穿到她后面的应用';")
           .append("      };")
           .append("      window.__etaTouch(on);")

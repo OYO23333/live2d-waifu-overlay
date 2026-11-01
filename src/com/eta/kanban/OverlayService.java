@@ -378,9 +378,9 @@ public class OverlayService extends Service {
         applyWindowFlags();
         updateNotification();
         L.i("Kanban", src + "点击穿透 = " + now
-                + (now ? "（窗口外穿透，点她本人即退出）" : "（恢复可交互）"));
+                + (now ? "（窗口外穿透，工具栏穿透键/通知可切回）" : "（恢复可交互）"));
         try {
-            Toast.makeText(this, now ? "点击穿透：已开启（窗口外照常穿透，点她本人即关闭）"
+            Toast.makeText(this, now ? "点击穿透：已开启（窗口外照常穿透，点工具栏穿透键切回）"
                             : "点击穿透：已关闭，可以正常点她",
                     Toast.LENGTH_SHORT).show();
         } catch (Throwable ignored) {
@@ -479,11 +479,6 @@ public class OverlayService extends Service {
         @Override
         public boolean onTouch(View v, MotionEvent e) {
             if (lp == null) return false;
-            // 穿透模式下任何落在窗口内的触摸（点她）：直接退出穿透，事件不传给页面
-            if (Prefs.touchThrough(OverlayService.this)) {
-                setTouchThrough(false, "穿透中点她");
-                return true;
-            }
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     dragging = false;
@@ -579,10 +574,6 @@ public class OverlayService extends Service {
 
         @Override
         public boolean onTouch(View v, MotionEvent e) {
-            if (Prefs.touchThrough(OverlayService.this)) {
-                setTouchThrough(false, "穿透中点手柄");
-                return true;
-            }
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     downX = e.getRawX();
@@ -667,7 +658,7 @@ public class OverlayService extends Service {
 
         return b.setContentTitle("看板娘")
                 .setContentText(showing
-                        ? (through ? "正在陪你（穿透中：窗口外照常点，点她本人即退出穿透）" : "正在陪你（点通知可设置）")
+                        ? (through ? "正在陪你（穿透中：点工具栏穿透键或展开通知切回）" : "正在陪你（点通知可设置）")
                         : "已收起（点这里唤回）")
                 .setSmallIcon(android.R.drawable.ic_menu_view)
                 .setContentIntent(piSettings)
@@ -773,17 +764,33 @@ public class OverlayService extends Service {
                 (android.media.projection.MediaProjectionManager)
                         getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         releaseProjection();
-        projection = mpm.getMediaProjection(android.app.Activity.RESULT_OK, sProjectionData);
+        // Android 14+ 要求调 getMediaProjection 前先把前台服务类型提到 mediaProjection，
+        // 否则 SecurityException 直接把服务打崩
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                startForeground(NOTI_ID, buildNotification(),
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+            } catch (Throwable t) {
+                L.w("Kanban", "提升前台服务类型失败（继续尝试）：" + t);
+            }
+        }
+        try {
+            projection = mpm.getMediaProjection(android.app.Activity.RESULT_OK, sProjectionData);
+        } catch (Throwable t) {
+            // 授权失效/类型不符：清掉缓存的授权，下次重新走系统授权框
+            sProjectionData = null;
+            L.e("Kanban", "getMediaProjection 失败：" + t);
+            Toast.makeText(this, "截屏授权已失效，请再点一次相机重新授权", Toast.LENGTH_LONG).show();
+            return;
+        }
         if (projection == null) {
             sProjectionData = null;
             L.w("Kanban", "MediaProjection 拿到空，授权可能已失效");
             return;
         }
-        if (Build.VERSION.SDK_INT >= 34) {
-            projection.registerCallback(new android.media.projection.MediaProjection.Callback() {
-                @Override public void onStop() { releaseProjection(); }
-            }, ui);
-        }
+        projection.registerCallback(new android.media.projection.MediaProjection.Callback() {
+            @Override public void onStop() { releaseProjection(); }
+        }, ui);
         virtualDisplay = projection.createVirtualDisplay("kanban-shot",
                 screenW, screenH, getResources().getDisplayMetrics().densityDpi,
                 android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
