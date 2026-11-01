@@ -12,25 +12,42 @@
 全部资源打进 APK，页面 origin 是 `https://app.local/`，所有请求由 `LocalAssets` 映射到 assets，
 **完全离线**。
 
+## 功能一览
+
+- **完整 App 主界面**：状态卡（权限/服务/当前人物与衣服/尺寸一览）、权限引导、
+  悬浮窗控制、快捷换装（按真实名字选人物和衣服，即时生效）
+- **悬浮窗看板娘**：透明 WebView 渲染，任意 App 之上都能看到她
+- **交互**：点她说话（气泡台词）、长按拖动换位、工具栏换人/换装/一言/截图/关闭
+- **点击穿透**：一键让她变纯装饰，触摸全部穿到下面的应用；通知栏可切回
+- **守护**：前台服务 + 看门狗自动拉起 + 开机自启 + 熄屏暂停渲染省电
+- **换装持久化**：工具栏上的换人/换装选择会同步回设置，重载、重启都不回退
+- **完全离线**：引擎、模型、台词全部打进 APK，无任何网络请求
+
 ## 结构
 
 ```
 AndroidManifest.xml      清单（悬浮窗 / 前台服务 / 通知 / 开机自启 / 守护）
-build.sh                 一键打包：aapt2 → javac → d8 → 合成 → zipalign → apksigner
+build.sh                 一键打包：aapt2/aapt → javac → d8 → 合成 → zipalign → apksigner
+check_page.py            打包前校验 Page.java 拼出的 HTML/JS（防 // 注释吃掉一整行）
 merge.py                 把 classes.dex 合成进 APK
+make_assets.js           资源生成：从 fghrsh/live2d_api 或 npm 模型包拉取并组装 assets/
 src/com/eta/kanban/
-  MainActivity.java      主界面：显示 / 收起 / 重载 / 设置 / 授权引导 / 切换点击穿透
-  SettingsActivity.java  设置：尺寸、停靠、边距、透明度、工具栏、关闭按钮、气泡、
-                         点击穿透、贴底边、拖动手柄、开机自启
-  OverlayService.java    悬浮窗前台服务（透明 WebView + 长按拖动 + 通知 + 守护 + 熄屏暂停）
+  MainActivity.java      主界面：状态卡 + 权限引导 + 悬浮窗控制 + 快捷换装 + 设置入口
+  SettingsActivity.java  设置：人物/衣服下拉（真实名字）、尺寸、停靠、边距、透明度、
+                         工具栏、气泡、一言来源、点击穿透、拖动手柄、开机自启
+  OverlayService.java    悬浮窗前台服务（透明 WebView + 长按拖动 + 通知 +
+                         换装/穿透动作 + 守护 + 熄屏暂停）
+  ModelRepo.java         读 assets/modelrepo：人物与衣服清单（给界面下拉用，带缓存）
   LocalAssets.java       把 app.local 的请求映射到 assets
-  Page.java              生成页面：加载 live2d-widget 并调用 initWidget（配置全部指向本地）
+  Page.java              生成页面：加载 live2d-widget 并调用 initWidget（配置全部指向本地），
+                         并把工具栏里的换人/换装选择回传原生设置
   Prefs.java             设置存取
   BootReceiver.java      开机自启（被系统拦截时退化为通知）
   WatchdogReceiver.java  守护：服务被回收后自动拉起
 assets/
   widget/                live2d-widget 引擎产物（waifu-tips.js、chunk、live2d.min.js、css、tips.json）
   modelrepo/             模型仓库：model_list.json + model/<名字>/index.json + textures.cache + 模型文件
+skills/android-overlay-app/  沉淀的手工打包与悬浮窗经验（SKILL.md + 参考文档 + 脚本）
 ```
 
 ## 资源怎么来
@@ -49,6 +66,7 @@ sh build.sh
 ```
 
 产出会直接覆盖 `assets/widget` 与 `assets/modelrepo`。想换角色就换参数重建，app 代码不用动。
+界面上的人物/衣服下拉清单读的就是这些文件，换资源后名字自动跟着变。
 
 ## 构建环境
 
@@ -59,13 +77,16 @@ sh build.sh
 | JDK | `/workspace/tools/jdk`（Corretto 21 aarch64） |
 | android.jar | `/workspace/tools/platform/android.jar`（API 37.0） |
 | d8 / apksigner | `/workspace/tools/build-tools`（Java 版可用） |
-| aapt2 / zipalign | `/usr/bin`（apt 的 arm64 版；build-tools 自带的是 x86_64，跑不了） |
-| 框架资源表 | `/usr/share/android-framework-res/framework-res.apk` |
+| aapt / aapt2 / zipalign | `/usr/bin`（apt 的 arm64 版；build-tools 自带的是 x86_64，跑不了） |
+| 框架资源表 | `/usr/share/android-framework-res/framework-res.apk`（apt 包 `android-framework-res`） |
 
 ```sh
 node make_assets.js --fghrsh Potion-Maker/Pio   # 生成资源
 sh build.sh                                      # 打包 → /sdcard/Live2D_看板娘app/apk/kanban.apk
 ```
+
+`build.sh` 会先跑 `check_page.py` 校验拼页面 JS，再依次 aapt → javac → d8 → 合成 → zipalign → 签名；
+本机 aapt2 是 x86_64 跑不了时会自动回退 Debian 的 arm64 `aapt`。
 
 ## 安装到手机
 
@@ -79,10 +100,21 @@ dumpsys deviceidle whitelist +com.eta.kanban
 
 ## 使用
 
-打开「看板娘」App：显示 / 收起 / 重新加载 / 设置 / 切换点击穿透 / 权限引导。
+打开「看板娘」App，主界面分四块：
+
+1. **状态卡**：悬浮窗/通知/电池优化权限、守护服务状态、在场/收起/穿透、
+   当前人物与衣服名、尺寸/停靠/透明度，一眼看全
+2. **权限引导**：悬浮窗 / 通知 / 电池优化三个按钮，已授予的会提示，不用重复点
+3. **悬浮窗控制**：显示 / 收起 / 重载 / 点击穿透 / 回默认位置 / 退出服务
+4. **快捷换装**：「下一个人物」「下一套衣服」即时生效；或下拉按真实名字
+   选人物 + 衣服点「换上」（清单直接读资源包里的 `model_list.json` / `textures.cache`）
+
+悬浮窗上：
 
 - **拖动**：长按看板娘 0.8 秒（震动提示）后按住拖动；位置自动记住，默认贴屏幕下边
-- **换人 / 换装**：悬浮窗工具栏上操作，选择会自动记住
+- **换人 / 换装**：悬浮窗工具栏上操作，选择会自动记住（页面把 localStorage 里的
+  modelId / modelTexturesId 同步回原生设置，App 主界面和重载后都不会回退）；也可以在
+  App 主界面的「快捷换装」里按名字选
 - **工具栏**：从上到下依次是 点击穿透 / 换装 / 换人 / 一言 / 截图 / 关闭（顺序与开关见设置）
 - **点击穿透**：点工具栏最上面那个「禁止」图标切换，开启时图标变暖黄色；此时她收不到触摸，工具栏也点不到
 - **怎么切回来**：① 通知栏那条通知要先展开（点右侧小箭头）才看得到「恢复可交互」按钮；
@@ -95,7 +127,8 @@ dumpsys deviceidle whitelist +com.eta.kanban
 
 1. `platform-37` 的 `android.jar` **没有 resources.arsc**，aapt2 报 "No resource identifier found" →
    用 apt 装 `android-framework-res`，链接时 `-I /usr/share/android-framework-res/framework-res.apk`
-2. 官方 build-tools 里的 `aapt2`/`zipalign` 是 **x86_64**，arm64 上 `Exec format error` → 用 Debian 源的 arm64 版本
+2. 官方 build-tools 里的 `aapt2`/`zipalign` 是 **x86_64**，arm64 上 `Exec format error` → 用 Debian 源的
+   arm64 版本；apt 源里没有 `aapt2` 包，`build.sh` 会自动回退到 `aapt`（参数兼容）
 3. 悬浮窗用 `WRAP_CONTENT` 会量出 **0×0**（内容用绝对定位，不贡献内在尺寸）→ 必须给显式像素尺寸
 4. 窗口贴在最顶上时，拖动手柄会落在状态栏的触摸区里被吃掉 → 位置下限设为状态栏高度
 5. `pm install` 不能直接从 `/sdcard` 装（system_server 读不了 FUSE）→ 先 `cp` 到 `/data/local/tmp`

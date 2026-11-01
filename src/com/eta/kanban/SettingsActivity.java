@@ -53,24 +53,48 @@ public class SettingsActivity extends Activity {
         t.setTextSize(24);
         root.addView(t);
 
-        // ---------- 角色与衣服 ----------
-        root.addView(label("人物 ID（资源包里的人物序号）"));
-        Spinner spModel = new Spinner(this);
-        String[] models = new String[7];
-        for (int i = 0; i < 7; i++) models[i] = String.valueOf(i + 1);
-        spModel.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, models));
-        spModel.setSelection(Math.max(0, Math.min(6, Prefs.modelId(this) - 1)));
+        // ---------- 人物与衣服（名字直接读模型仓库，不再靠猜数字）----------
+        root.addView(label("人物（来自资源包）"));
+        final Spinner spModel = new Spinner(this);
+        final java.util.List<ModelRepo.Info> models = ModelRepo.list(this);
+        String[] modelNames = new String[Math.max(1, models.size())];
+        if (models.isEmpty()) modelNames[0] = "（资源包为空，请先用 make_assets.js 生成）";
+        else for (int i = 0; i < models.size(); i++) modelNames[i] = models.get(i).name;
+        spModel.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, modelNames));
+
+        final Spinner spTex = new Spinner(this);
+        final Runnable fillTex = new Runnable() {
+            public void run() {
+                int modelId = spModel.getSelectedItemPosition() + 1;
+                ModelRepo.Info m = ModelRepo.model(SettingsActivity.this, modelId);
+                int n = m == null ? 1 : Math.max(1, m.textures.size());
+                String[] names = new String[n];
+                for (int i = 0; i < n; i++) names[i] = (i + 1) + ". " + ModelRepo.texName(SettingsActivity.this, modelId, i + 1);
+                spTex.setAdapter(new ArrayAdapter<String>(SettingsActivity.this,
+                        android.R.layout.simple_spinner_dropdown_item, names));
+                int keep = (modelId == Prefs.modelId(SettingsActivity.this))
+                        ? Prefs.texId(SettingsActivity.this) : 1;
+                spTex.setSelection(Math.max(0, Math.min(n - 1, keep - 1)));
+            }
+        };
+        spModel.setSelection(Math.max(0, Math.min(modelNames.length - 1, Prefs.modelId(this) - 1)));
         spModel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                 Prefs.set(SettingsActivity.this, "modelId", pos + 1);
+                fillTex.run();
+            }
+            public void onNothingSelected(AdapterView<?> p) { }
+        });
+        spTex.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                Prefs.set(SettingsActivity.this, "texId", pos + 1);
             }
             public void onNothingSelected(AdapterView<?> p) { }
         });
         root.addView(spModel);
-
-        root.addView(slider("衣服 ID（Pio 有 87 套，1 起）", 1, 87, Prefs.texId(this), new SliderCB() {
-            public void on(int v) { Prefs.set(SettingsActivity.this, "texId", v); }
-        }));
+        root.addView(label("衣服"));
+        root.addView(spTex);
+        fillTex.run();
 
         // ---------- 人物大小与停靠 ----------
         root.addView(label("人物大小与停靠"));

@@ -16,8 +16,11 @@ rm -rf build gen out dex
 mkdir -p build gen out dex
 
 echo "== 1/6 aapt2：编译资源 + 链接（manifest/assets） =="
-aapt2 compile --dir res -o build/res.zip
-aapt2 link -o build/base.apk \
+# 本机只有 aapt（aapt2 官方版是 x86_64 跑不了，apt 源没有 aapt2），一套参数两边都能吃
+AAPT2=/usr/bin/aapt
+if command -v aapt2 >/dev/null 2>&1 && aapt2 version >/dev/null 2>&1; then AAPT2=aapt2; fi
+$AAPT2 compile --dir res -o build/res.zip
+$AAPT2 link -o build/base.apk \
       -I /usr/share/android-framework-res/framework-res.apk \
       --manifest AndroidManifest.xml \
       -A assets \

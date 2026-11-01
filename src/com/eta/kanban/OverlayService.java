@@ -43,6 +43,11 @@ public class OverlayService extends Service {
     public static final String ACTION_CLEAR_TOUCH = "com.eta.kanban.action.CLEAR_TOUCH";
     /** 回到默认位置：右下角、贴屏幕底边 */
     public static final String ACTION_RESET_POS = "com.eta.kanban.action.RESET_POS";
+    /** 换指定人物/衣服（extra: modelId / texId，缺省表示不变） */
+    public static final String ACTION_SET_LOOK = "com.eta.kanban.action.SET_LOOK";
+    /** 换下一个人物 / 下一套衣服（主界面快捷换装用） */
+    public static final String ACTION_CYCLE_MODEL = "com.eta.kanban.action.CYCLE_MODEL";
+    public static final String ACTION_CYCLE_TEXTURE = "com.eta.kanban.action.CYCLE_TEXTURE";
 
     private static final String CHANNEL = "kanban_overlay";
     private static final int NOTI_ID = 1001;
@@ -163,14 +168,7 @@ public class OverlayService extends Service {
                 break;
             case ACTION_RELOAD:
                 Prefs.setVisible(this, true);
-                if (attached && web != null) {
-                    applyWindowFlags();
-                    resetPosition();
-                    web.loadDataWithBaseURL("https://app.local/", Page.html(this),
-                            "text/html", "utf-8", null);
-                } else {
-                    attach();
-                }
+                reloadPage();
                 break;
             case ACTION_EXIT:
                 Prefs.setEnabled(this, false);
@@ -191,6 +189,32 @@ public class OverlayService extends Service {
                 L.i("Kanban", "已恢复默认外观与位置（右下角贴底）");
                 break;
             }
+            case ACTION_SET_LOOK: {
+                Prefs.setVisible(this, true);
+                int mid = intent.getIntExtra("modelId", -1);
+                int tid = intent.getIntExtra("texId", -1);
+                if (mid > 0) Prefs.set(this, "modelId", ModelRepo.clampModelId(this, mid));
+                if (tid > 0) Prefs.set(this, "texId", Math.max(1, tid));
+                reloadPage();
+                break;
+            }
+            case ACTION_CYCLE_MODEL: {
+                int n = Math.max(1, ModelRepo.modelCount(this));
+                int next = Prefs.modelId(this) % n + 1;
+                Prefs.set(this, "modelId", next);
+                Prefs.set(this, "texId", 1);
+                Prefs.setVisible(this, true);
+                reloadPage();
+                break;
+            }
+            case ACTION_CYCLE_TEXTURE: {
+                int mid = Prefs.modelId(this);
+                int n = ModelRepo.texCount(this, mid);
+                Prefs.set(this, "texId", Prefs.texId(this) % n + 1);
+                Prefs.setVisible(this, true);
+                reloadPage();
+                break;
+            }
             case ACTION_TOGGLE_TOUCH: {
                 setTouchThrough(!Prefs.touchThrough(this), "");
                 break;
@@ -206,6 +230,18 @@ public class OverlayService extends Service {
                 break;
         }
         return START_STICKY;
+    }
+
+    /** 没挂就挂，挂了就在原窗口里重载页面（换装/换人后即时生效） */
+    private void reloadPage() {
+        if (attached && web != null) {
+            applyWindowFlags();
+            resetPosition();
+            web.loadDataWithBaseURL("https://app.local/", Page.html(this),
+                    "text/html", "utf-8", null);
+        } else {
+            attach();
+        }
     }
 
     // ---------- 视图 ----------
@@ -669,6 +705,18 @@ public class OverlayService extends Service {
             ui.post(new Runnable() {
                 public void run() {
                     setTouchThrough(!Prefs.touchThrough(OverlayService.this), "工具栏切换");
+                }
+            });
+        }
+
+        /** 工具栏换人/换装后同步给设置，下次重建页面不会退回旧选择 */
+        @JavascriptInterface
+        public void saveLook(final int modelId, final int texId) {
+            ui.post(new Runnable() {
+                public void run() {
+                    if (modelId >= 0) Prefs.set(OverlayService.this, "modelId", modelId + 1);
+                    if (texId >= 0) Prefs.set(OverlayService.this, "texId", texId + 1);
+                    L.i("Kanban", "工具栏选择已记住 modelId=" + modelId + " texId=" + texId);
                 }
             });
         }
