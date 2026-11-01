@@ -106,7 +106,24 @@ public class Page {
           .append("    try{Android.log('initWidget 已调用, tools='+tools.join(',')+' modelId=")
           .append(modelId - 1).append(" texId=").append(texId - 1).append("');}catch(e){}")
           .append("    addTouchButton(").append(Prefs.touchThrough(c)).append(");")
+          .append("    addShotButton();")
           .append("    watch();")
+          .append("  }")
+          // 相机按钮：整屏截图走原生（MediaProjection），插在关闭按钮之前
+          .append("  function addShotButton(){")
+          .append("    try{")
+          .append("      var tool=document.getElementById('waifu-tool');")
+          .append("      if(!tool||!tool.parentNode||document.getElementById('eta-shot')) return;")
+          .append("      var b=document.createElement('span');")
+          .append("      b.id='eta-shot';")
+          .append("      b.title='截图（整屏，存相册 Kanban 目录）';")
+          .append("      b.innerHTML='<svg viewBox=\"0 0 24 24\"><path d=\"M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z\"/><path d=\"M9 2L7.17 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3.17L15 2H9z\"/></svg>';")
+          .append("      b.style.cursor='pointer';")
+          .append("      b.addEventListener('click',function(ev){ ev.stopPropagation();")
+          .append("        try{ Android.screenshot(); }catch(e){} }, true);")
+          .append("      var quit=tool.querySelector('.fui-cross');")
+          .append("      if(quit) tool.insertBefore(b,quit); else tool.appendChild(b);")
+          .append("    }catch(e){}")
           .append("  }")
           // 工具栏追加"点击穿透"按钮（图标风格与其它按钮一致，插在关闭按钮之前）
           .append("  function addTouchButton(on){")
@@ -123,8 +140,8 @@ public class Page {
           .append("      if(quit) tool.insertBefore(b,quit); else tool.appendChild(b);")
           .append("      window.__etaTouch=function(state){")
           .append("        b.className = state ? 'on' : '';")
-          .append("        b.title = state ? '点击穿透已开启：她现在是纯装饰，切回请用通知栏按钮'")
-          .append("                      : '点击穿透：点一下，触摸就会穿到她后面的应用';")
+          .append("        b.title = state ? '点击穿透已开启：窗口外照常穿透，点她本人即关闭'")
+          .append("                      : '点击穿透：点一下，窗口外的触摸就会穿到她后面的应用';")
           .append("      };")
           .append("      window.__etaTouch(on);")
           .append("      try{Android.log('已加装点击穿透按钮, 当前='+on);}catch(e){}")
@@ -245,13 +262,12 @@ public class Page {
         return sb.toString();
     }
 
-    /** 工具栏按钮：已按需求去掉 info；一言关闭时不显示该按钮 */
+    /** 工具栏按钮：已按需求去掉 info；photo 由原生层接管（全屏截图），不再用引擎的画布导出 */
     private static String toolsJson(boolean toolbar, boolean close, int hitoSource) {
         if (!toolbar) return close ? "['quit']" : "[]";
         StringBuilder t = new StringBuilder("[");
         t.append("'switch-texture','switch-model'");
         if (hitoSource != 2) t.append(",'hitokoto'");
-        t.append(",'photo'");
         if (close) t.append(",'quit'");
         return t.append("]").toString();
     }

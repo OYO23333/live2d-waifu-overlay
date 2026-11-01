@@ -48,6 +48,10 @@ public class OverlayService extends Service {
     /** 换下一个人物 / 下一套衣服（主界面快捷换装用） */
     public static final String ACTION_CYCLE_MODEL = "com.eta.kanban.action.CYCLE_MODEL";
     public static final String ACTION_CYCLE_TEXTURE = "com.eta.kanban.action.CYCLE_TEXTURE";
+    /** 全屏截图：从悬浮窗工具栏触发，经由 MainActivity 走 MediaProjection 授权 */
+    public static final String ACTION_SCREENSHOT = "com.eta.kanban.action.SCREENSHOT";
+    /** 截图完成后的回跳（无操作，仅让服务把授权页顶掉） */
+    public static final String ACTION_SCREENSHOT_SAVED = "com.eta.kanban.action.SCREENSHOT_SAVED";
 
     private static final String CHANNEL = "kanban_overlay";
     private static final int NOTI_ID = 1001;
@@ -215,6 +219,13 @@ public class OverlayService extends Service {
                 reloadPage();
                 break;
             }
+            case ACTION_SCREENSHOT_SAVED: {
+                break;
+            }
+            case ACTION_SCREENSHOT: {
+                screenshot();
+                break;
+            }
             case ACTION_TOGGLE_TOUCH: {
                 setTouchThrough(!Prefs.touchThrough(this), "");
                 break;
@@ -342,7 +353,10 @@ public class OverlayService extends Service {
                 | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                 | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
         if (Prefs.touchThrough(this)) {
-            base |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+            // 不用 FLAG_NOT_TOUCHABLE（那样她完全摸不到，只能靠展开通知切回）。
+            // NOT_TOUCH_MODAL：窗口范围外的触摸照常穿透到下面的应用，
+            // 落在窗口内（她身上）的触摸由我们接住——点一下就退出穿透。
+            base |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
         }
         lp.flags = base;
         lp.width = dp(Prefs.sizeW(this) + 30);
@@ -364,9 +378,9 @@ public class OverlayService extends Service {
         applyWindowFlags();
         updateNotification();
         L.i("Kanban", src + "点击穿透 = " + now
-                + (now ? "（她纯装饰，切回请点通知栏按钮）" : "（恢复可交互）"));
+                + (now ? "（窗口外穿透，点她本人即退出）" : "（恢复可交互）"));
         try {
-            Toast.makeText(this, now ? "点击穿透：已开启，她现在是纯装饰（用通知栏按钮切回）"
+            Toast.makeText(this, now ? "点击穿透：已开启（窗口外照常穿透，点她本人即关闭）"
                             : "点击穿透：已关闭，可以正常点她",
                     Toast.LENGTH_SHORT).show();
         } catch (Throwable ignored) {
@@ -465,6 +479,11 @@ public class OverlayService extends Service {
         @Override
         public boolean onTouch(View v, MotionEvent e) {
             if (lp == null) return false;
+            // 穿透模式下任何落在窗口内的触摸（点她）：直接退出穿透，事件不传给页面
+            if (Prefs.touchThrough(OverlayService.this)) {
+                setTouchThrough(false, "穿透中点她");
+                return true;
+            }
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     dragging = false;
@@ -560,6 +579,10 @@ public class OverlayService extends Service {
 
         @Override
         public boolean onTouch(View v, MotionEvent e) {
+            if (Prefs.touchThrough(OverlayService.this)) {
+                setTouchThrough(false, "穿透中点手柄");
+                return true;
+            }
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     downX = e.getRawX();
@@ -644,7 +667,7 @@ public class OverlayService extends Service {
 
         return b.setContentTitle("看板娘")
                 .setContentText(showing
-                        ? (through ? "正在陪你（点击穿透中，展开通知可切回）" : "正在陪你（点通知可设置）")
+                        ? (through ? "正在陪你（穿透中：窗口外照常点，点她本人即退出穿透）" : "正在陪你（点通知可设置）")
                         : "已收起（点这里唤回）")
                 .setSmallIcon(android.R.drawable.ic_menu_view)
                 .setContentIntent(piSettings)
@@ -665,6 +688,11 @@ public class OverlayService extends Service {
     @Override
     public void onDestroy() {
         sRunning = false;
+        releaseProjection();
+        if (imageReader != null) {
+            try { imageReader.close(); } catch (Throwable ignored) { }
+            imageReader = null;
+        }
         detach();
         try {
             unregisterReceiver(screenReceiver);
@@ -676,6 +704,195 @@ public class OverlayService extends Service {
         }
         container = null;
         super.onDestroy();
+    }
+
+    // ---------- 全屏截图（MediaProjection） ----------
+    // 网页版 photo 按钮只存画布；这里替换成整屏。系统弹的授权框每个进程要确认一次，
+    // 结果存在静态变量里，之后点相机直接拍。
+
+    static android.content.Intent sProjectionData = null;
+
+    private android.media.projection.MediaProjection projection;
+    private android.hardware.display.VirtualDisplay virtualDisplay;
+    private android.media.ImageReader imageReader;
+
+    /** 有没有现成的截屏授权：决定工具栏相机是直接拍还是先弹授权 */
+    public static boolean hasProjection() {
+        return sProjectionData != null;
+    }
+
+    /** 授权结果（由 MainActivity.onActivityResult 转交） */
+    public static void onProjectionResult(Context c, int resultCode, android.content.Intent data) {
+        if (resultCode == android.app.Activity.RESULT_OK && data != null) {
+            sProjectionData = data;
+            L.i("Kanban", "截屏授权已通过");
+            // 授权框一关就立刻拍，不用再点一次
+            Intent i = new Intent(c, OverlayService.class).setAction(ACTION_SCREENSHOT);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                c.startForegroundService(i);
+            } else {
+                c.startService(i);
+            }
+        } else {
+            L.w("Kanban", "截屏授权被拒绝");
+            Toast.makeText(c, "截屏授权被拒绝，无法截图", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void screenshot() {
+        if (sProjectionData == null) {
+            // 没有授权：拉起一个透明 Activity 弹系统确认框
+            try {
+                Intent i = new Intent(this, MainActivity.class);
+                i.setAction(MainActivity.ACTION_REQUEST_PROJECTION);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            } catch (Throwable t) {
+                L.e("Kanban", "拉起截屏授权失败：" + t);
+            }
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return;
+        try {
+            takeScreenshot();
+        } catch (Throwable t) {
+            L.e("Kanban", "截图失败：" + t);
+            Toast.makeText(this, "截图失败：" + t.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    private void takeScreenshot() {
+        updateScreenSize();
+        if (imageReader != null) {
+            try { imageReader.close(); } catch (Throwable ignored) { }
+        }
+        imageReader = android.media.ImageReader.newInstance(screenW, screenH,
+                android.graphics.PixelFormat.RGBA_8888, 2);
+        android.media.projection.MediaProjectionManager mpm =
+                (android.media.projection.MediaProjectionManager)
+                        getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        releaseProjection();
+        projection = mpm.getMediaProjection(android.app.Activity.RESULT_OK, sProjectionData);
+        if (projection == null) {
+            sProjectionData = null;
+            L.w("Kanban", "MediaProjection 拿到空，授权可能已失效");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 34) {
+            projection.registerCallback(new android.media.projection.MediaProjection.Callback() {
+                @Override public void onStop() { releaseProjection(); }
+            }, ui);
+        }
+        virtualDisplay = projection.createVirtualDisplay("kanban-shot",
+                screenW, screenH, getResources().getDisplayMetrics().densityDpi,
+                android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                imageReader.getSurface(), null, null);
+        // 给系统 300ms 把首帧推过来再读
+        ui.postDelayed(new Runnable() {
+            public void run() { grabFrame(); }
+        }, 300);
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.KITKAT)
+    private void grabFrame() {
+        android.media.Image img = null;
+        try {
+            if (imageReader == null) return;
+            img = imageReader.acquireLatestImage();
+            if (img == null) {
+                L.w("Kanban", "截图没等到帧，重试一次");
+                ui.postDelayed(new Runnable() {
+                    public void run() { grabFrameRetry(); }
+                }, 300);
+                return;
+            }
+            saveImage(img);
+        } catch (Throwable t) {
+            L.e("Kanban", "读帧失败：" + t);
+        } finally {
+            if (img != null) {
+                try { img.close(); } catch (Throwable ignored) { }
+            }
+            releaseProjection();
+        }
+    }
+
+    private void grabFrameRetry() {
+        android.media.Image img = null;
+        try {
+            img = imageReader == null ? null : imageReader.acquireLatestImage();
+            if (img == null) {
+                Toast.makeText(this, "截图失败：没等到画面", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            saveImage(img);
+        } catch (Throwable t) {
+            L.e("Kanban", "读帧失败：" + t);
+        } finally {
+            if (img != null) {
+                try { img.close(); } catch (Throwable ignored) { }
+            }
+            releaseProjection();
+        }
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.KITKAT)
+    private void saveImage(android.media.Image img) throws java.io.IOException {
+        android.media.Image.Plane[] planes = img.getPlanes();
+        java.nio.ByteBuffer buf = planes[0].getBuffer();
+        int pixelStride = planes[0].getPixelStride();
+        int rowStride = planes[0].getRowStride();
+        int rowPadding = rowStride - pixelStride * screenW;
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(
+                screenW + rowPadding / pixelStride, screenH, android.graphics.Bitmap.Config.ARGB_8888);
+        bmp.copyPixelsFromBuffer(buf);
+        android.graphics.Bitmap cropped = android.graphics.Bitmap.createBitmap(bmp, 0, 0, screenW, screenH);
+        bmp.recycle();
+
+        String name = "KanbanShot_" + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                .format(new java.util.Date()) + ".png";
+        String where;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name);
+            v.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png");
+            v.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_PICTURES + "/Kanban");
+            android.net.Uri uri = getContentResolver().insert(
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) throw new java.io.IOException("MediaStore 插入失败");
+            java.io.OutputStream os = getContentResolver().openOutputStream(uri);
+            cropped.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, os);
+            if (os != null) os.close();
+            where = "相册/Pictures/Kanban/" + name;
+        } else {
+            java.io.File dir = new java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(
+                            android.os.Environment.DIRECTORY_PICTURES), "Kanban");
+            dir.mkdirs();
+            java.io.File f = new java.io.File(dir, name);
+            java.io.FileOutputStream fo = new java.io.FileOutputStream(f);
+            cropped.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, fo);
+            fo.close();
+            sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE,
+                    android.net.Uri.fromFile(f)));
+            where = f.getAbsolutePath();
+        }
+        cropped.recycle();
+        L.i("Kanban", "截图已保存 " + where);
+        Toast.makeText(this, "截图已保存：" + where, Toast.LENGTH_LONG).show();
+    }
+
+    private void releaseProjection() {
+        if (virtualDisplay != null) {
+            try { virtualDisplay.release(); } catch (Throwable ignored) { }
+            virtualDisplay = null;
+        }
+        if (projection != null) {
+            try { projection.stop(); } catch (Throwable ignored) { }
+            projection = null;
+        }
     }
 
     public class Bridge {
@@ -706,6 +923,14 @@ public class OverlayService extends Service {
                 public void run() {
                     setTouchThrough(!Prefs.touchThrough(OverlayService.this), "工具栏切换");
                 }
+            });
+        }
+
+        /** 工具栏相机按钮：全屏截图（需要用户授予 MediaProjection） */
+        @JavascriptInterface
+        public void screenshot() {
+            ui.post(new Runnable() {
+                public void run() { OverlayService.this.screenshot(); }
             });
         }
 

@@ -23,6 +23,10 @@ import android.widget.Toast;
  */
 public class MainActivity extends Activity {
 
+    /** 悬浮窗工具栏点相机时拉起本界面弹系统截屏授权（透明主题，用户只见系统框） */
+    public static final String ACTION_REQUEST_PROJECTION = "com.eta.kanban.action.REQUEST_PROJECTION";
+    private static final int REQ_PROJECTION = 42;
+
     private TextView status;
     /** 每次进主界面只自动清一次穿透，避免 recreate 反复触发 */
     private boolean autoCleared;
@@ -31,6 +35,21 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         L.init(this);
+
+        // 只是来弹截屏授权的：立刻弹系统框，不铺界面
+        if (getIntent() != null
+                && ACTION_REQUEST_PROJECTION.equals(getIntent().getAction())) {
+            try {
+                android.media.projection.MediaProjectionManager mpm =
+                        (android.media.projection.MediaProjectionManager)
+                                getSystemService(MEDIA_PROJECTION_SERVICE);
+                startActivityForResult(mpm.createScreenCaptureIntent(), REQ_PROJECTION);
+            } catch (Throwable t) {
+                L.e("Kanban", "弹截屏授权失败：" + t);
+                finish();
+            }
+            return;
+        }
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -252,6 +271,16 @@ public class MainActivity extends Activity {
 
     private boolean overlayGranted() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_PROJECTION) {
+            // 转交给服务：授权成功会立刻拍一张
+            OverlayService.onProjectionResult(this, resultCode, data);
+            finish();
+        }
     }
 
     @Override
