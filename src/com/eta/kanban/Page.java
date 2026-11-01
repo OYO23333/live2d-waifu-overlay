@@ -60,17 +60,25 @@ public class Page {
           .append("left:-10px !important;right:-10px !important;top:-8px !important;bottom:-8px !important}");
         if (showTips) {
             int offY = Math.max(0, tipsOffY);
-            sb.append("#waifu-tips{position:absolute !important;left:8px !important;right:8px !important;")
-              .append("top:").append(offY).append("px !important;")
+            // 引擎给 #waifu-tips 的是流式定位（absolute + margin，贴着画布上沿居中，
+            // 还会随 .waifu-tips-active 只改透明度）；我们整窗就一丁点高，
+            // 必须强制钉在窗口顶部，否则气泡会被画布顶到她腿上甚至溢出窗口。
+            sb.append("#waifu-tips{position:fixed !important;")
+              .append("left:8px !important;right:8px !important;top:").append(offY).append("px !important;")
+              .append("bottom:auto !important;")
               .append("width:auto !important;box-sizing:border-box !important;")
               .append("min-height:0 !important;max-height:").append(tipsH).append("px !important;")
               .append("font-size:").append(tipsFont).append("px !important;")
               .append("line-height:").append(Math.max(tipsFont + 6, 18)).append("px !important;")
               .append("margin:0 !important;padding:5px 10px !important;border-radius:10px !important;")
-              .append("overflow:hidden !important}");
-            sb.append("#waifu-tips{width:min(").append(tipsW).append("px, calc(100% - 16px)) !important}");
+              .append("overflow:hidden !important;text-overflow:clip !important;")
+              .append("animation:none !important;transform:none !important;}")
+              .append("#waifu-tips{width:min(").append(tipsW).append("px, calc(100% - 16px)) !important}");
+            // 气泡显隐引擎用 class，不写 display 拦截，保持引擎的 opacity 过渡
+            sb.append("#waifu-tips.waifu-tips-active{opacity:1 !important}");
         } else {
             sb.append("#waifu-tips{display:none !important}");
+            sb.append("#waifu-tips.waifu-tips-active{display:none !important}");
         }
         sb.append("</style></head><body>")
           .append("<script>")
